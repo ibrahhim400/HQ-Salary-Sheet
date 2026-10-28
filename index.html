@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>HQ Salary Sheet</title>
+<style>
+:root{
+  --bg:#f6f7f5; --card:#fff; --ink:#1d2420; --muted:#667068; --line:#dfe4de;
+  --accent:#2f6b3f; --accent-ink:#fff; --head:#eff6ea; --group:#dfeadb;
+  --warn:#b4570a; --warn-bg:#fdf1e4; --bad:#b3261e; --bad-bg:#fdeceb; --ok-bg:#e6f3e8; --hover:#f3f8f1;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#121613; --card:#1a201b; --ink:#e8ede9; --muted:#97a39a; --line:#2c352e;
+    --accent:#6fbf86; --accent-ink:#0e1a12; --head:#223025; --group:#2a3b2d;
+    --warn:#f0a35e; --warn-bg:#33261a; --bad:#f2928c; --bad-bg:#3a1f1d; --ok-bg:#1f3325; --hover:#202a22;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+button,input,select{font:inherit;color:inherit}
+.hidden{display:none!important}
+
+/* login */
+#gate{position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);padding:16px;z-index:50}
+.gate-box{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:360px}
+.gate-box h1{font-size:18px;margin:0 0 4px}
+.gate-box p{margin:0 0 16px;color:var(--muted)}
+.gate-box input{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--bg);margin-bottom:10px}
+.gate-box input:focus,.tools input:focus,.tools select:focus{outline:2px solid var(--accent);outline-offset:1px}
+.err{color:var(--bad);min-height:20px;font-size:13px;margin:4px 0 0}
+
+.btn{padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);cursor:pointer}
+.btn:hover{background:var(--hover)}
+.btn.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);font-weight:600}
+.btn.primary:hover{filter:brightness(1.08);background:var(--accent)}
+button:disabled{opacity:.6;cursor:default}
+
+.inputs{display:grid;grid-template-columns:1fr auto;gap:8px 16px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:12px}
+.inputs .hint{color:var(--muted);font-size:13px;margin-top:2px}
+.inputs-actions{display:flex;gap:8px;flex-wrap:wrap}
+.inputs-status{grid-column:1/-1;font-size:13px}
+.inputs-status.ok{color:var(--accent)}
+label.btn{display:inline-block}
+@media (max-width:720px){.inputs{grid-template-columns:1fr}}
+/* app */
+.wrap{max-width:1600px;margin:0 auto;padding:20px 16px 40px}
+header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
+header.top h1{margin:0;font-size:22px}
+header.top .sub{color:var(--muted);margin-top:2px}
+.actions{display:flex;flex-wrap:wrap;gap:8px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.card .k{color:var(--muted);font-size:12px}
+.card .v{font-size:20px;font-weight:650;font-variant-numeric:tabular-nums;margin-top:2px}
+.card .s{color:var(--muted);font-size:12px;margin-top:2px}
+.tools{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px}
+.tabs{display:flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:var(--card)}
+.tabs button{border:0;background:none;padding:8px 14px;cursor:pointer}
+.tabs button+button{border-left:1px solid var(--line)}
+.tabs button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);font-weight:600}
+.tools input[type=search],.tools select{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.tools input[type=search]{min-width:290px}
+.status{color:var(--muted);font-size:13px;margin-left:auto}
+.banner{padding:10px 14px;border-radius:8px;margin-bottom:12px}
+.banner.bad{background:var(--bad-bg);color:var(--bad)}
+.banner.warn{background:var(--warn-bg);color:var(--warn)}
+
+.tablebox{background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:auto;max-height:72vh}
+table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;font-size:13px}
+th,td{padding:7px 10px;border-bottom:1px solid var(--line);border-right:1px solid var(--line);white-space:nowrap;background:var(--card)}
+thead th{position:sticky;background:var(--head);z-index:3;text-align:center;font-weight:600}
+thead tr.g th{top:0;background:var(--group)}
+thead tr.h th{top:var(--g-h,30px);white-space:normal;min-width:84px;vertical-align:middle}
+tbody tr:hover td{background:var(--hover)}
+td.num{text-align:right;font-variant-numeric:tabular-nums}
+td.ctr{text-align:center}
+td.wrapcell{white-space:normal;min-width:260px}
+.sticky{position:sticky;z-index:2}
+thead .sticky{z-index:5}
+.c0{left:0;min-width:52px;max-width:52px}
+.c1{left:52px;min-width:84px;max-width:84px}
+.c2{left:136px;min-width:210px;max-width:210px;box-shadow:2px 0 0 var(--line)}
+tfoot td{position:sticky;bottom:0;background:var(--head);font-weight:650;z-index:3;border-top:2px solid var(--line)}
+tfoot td.sticky{z-index:5}
+.badge{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;background:var(--ok-bg);color:var(--accent)}
+.badge.res{background:var(--warn-bg);color:var(--warn)}
+.remark-hold{color:var(--warn);font-weight:600}
+.empty{padding:40px;text-align:center;color:var(--muted)}
+details.checks{margin-top:14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+details.checks summary{cursor:pointer;font-weight:600}
+details.checks ul{margin:8px 0 0;padding-left:20px}
+details.checks li{margin:3px 0}
+.sign{display:flex;gap:80px;margin-top:40px;color:var(--muted)}
+.sign div{min-width:160px;border-top:1px solid var(--muted);padding-top:4px}
+
+@media print{
+  .inputs,#inbanner{display:none!important}
+  @page{size:A3 landscape;margin:8mm}
+  body{background:#fff;color:#000;font-size:9px}
+  .actions,.tools,.cards .s,#gate,details.checks,.banner{display:none!important}
+  .tablebox{max-height:none;overflow:visible;border:0}
+  th,td{padding:3px 5px;position:static!important;box-shadow:none!important;background:#fff!important}
+  thead th{background:#eee!important}
+  .cards{grid-template-columns:repeat(5,1fr)}
+}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <form class="gate-box" id="loginForm" autocomplete="off">
+    <h1>HQ Salary Sheet</h1>
+    <p>Password diye login korun.</p>
+    <input type="password" id="pw" placeholder="Password" autofocus aria-label="Password">
+    <button class="btn primary" style="width:100%" type="submit">Login</button>
+    <div class="err" id="loginErr" role="alert"></div>
+  </form>
+</div>
+
+<main class="wrap hidden" id="app">
+  <header class="top">
+    <div>
+      <h1 id="company">Salary Sheet</h1>
+      <div class="sub" id="title"></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnRefresh" type="button">Refresh from Google Sheet</button>
+      <button class="btn" id="btnPrint" type="button">Print</button>
+      <button class="btn primary" id="btnXlsx" type="button" disabled>Download Excel</button>
+      <button class="btn" id="btnLogout" type="button">Logout</button>
+    </div>
+  </header>
+
+  <div id="banner"></div>
+  <section class="cards" id="cards" aria-label="Summary"></section>
+
+  <section class="inputs" id="inputsPanel" aria-label="Salary inputs">
+    <div>
+      <b>Salary inputs upload</b>
+      <div class="hint">Hand-input 8 ta column (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, TDS, Loan/Advance, Other Adjustment) ei file theke ashbe, <b>Staff Code</b> diye mele. Upload na korle Google Sheet er value use hobe.</div>
+    </div>
+    <div class="inputs-actions">
+      <button class="btn" id="btnTemplate" type="button">Download template</button>
+      <label class="btn primary" for="fileIn" role="button" tabindex="0" id="lblUpload">Upload input sheet</label>
+      <input type="file" id="fileIn" accept=".xlsx,.csv" class="hidden">
+      <button class="btn hidden" id="btnClearIn" type="button">Clear</button>
+    </div>
+    <div class="inputs-status" id="inStatus"></div>
+  </section>
+  <div id="inbanner"></div>
+
+  <div class="tools">
+    <div class="tabs" role="group" aria-label="Status filter" id="tabs">
+      <button type="button" data-f="all" aria-pressed="true">All</button>
+      <button type="button" data-f="Active" aria-pressed="false">Active</button>
+      <button type="button" data-f="Resigned" aria-pressed="false">Resigned</button>
+    </div>
+    <select id="dept" aria-label="Department"><option value="">All departments</option></select>
+    <input type="search" id="q" placeholder="Search name, code, designation..." aria-label="Search">
+    <span class="status" id="status"></span>
+  </div>
+
+  <div class="tablebox"><table id="tbl"></table></div>
+  <details class="checks" id="checks"><summary>Data checks</summary><ul id="checkList"></ul></details>
+  <div class="sign"><div>Prepared By</div><div>Checked By</div><div>Approved By</div></div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
+<script>
+/* ================= CONFIG ================= */
+const CONFIG = {
+  SHEET_ID: '1B_Dyh8NdpALA1er9qcsmn_pp2aG-c6tLk2WikIdn_3s',
+  GID: '0',                       // "Oct' 26 Salary" tab
+  // SHA-256 of the password. Change it: see README.md
+  PASSWORD_HASH: '0073c6c3e9a0038a82419078ac4b6fbae8e2a34c9f4758faff7aa8135d66630c'
+};
+
+/* Columns follow the sheet exactly: A=0 ... AJ=35 */
+const COLS = [
+  ['SL.','int','Employee'],['Staff Code','text','Employee'],['Name','text','Employee'],['Date of Joining','date','Employee'],
+  ['Status','status','Employee'],['Last Working Day','date','Employee'],['Designation','text','Employee'],['Department','text','Employee'],['Job Location','text','Employee'],
+  ['Account / Card Number','text','Bank'],['Bank','text','Bank'],['Branch Name','text','Bank'],['Routing Number','text','Bank'],['Payroll Type','text','Bank'],
+  ['Basic','money','Salary Structure'],['House Rent','money','Salary Structure'],['Medical Allowance','money','Salary Structure'],['Conveyance Allowance','money','Salary Structure'],['Gross Salary','money','Salary Structure'],
+  ['Month Days','int','Days & Salary'],['Per Day Salary','money','Days & Salary'],['Applicable Days (Joining / Resign)','int','Days & Salary'],['Absent / Unauthorised Leave Days','int','Days & Salary'],['Payable Days','int','Days & Salary'],['Applicable Salary','money','Days & Salary'],
+  ['Salary Arrear','money','Additions'],['Bonus','money','Additions'],['Others','money','Additions'],
+  ['Absent / Unauthorised Leave','money','Standard Deductions'],['Notice Period & Others','money','Standard Deductions'],
+  ['Total Payable','money','Total Payable'],
+  ['Income Tax (TDS)','money','Statutory & Other Adjustments'],['Personal Loan / Salary Advance','money','Statutory & Other Adjustments'],['Other Adjustment','money','Statutory & Other Adjustments'],
+  ['Net Payable','money','Net Payable'],['Remarks','remark','Remarks']
+];
+const TOTAL_COLS = [18,24,25,26,27,28,29,30,31,32,33,34];
+const NCOL = COLS.length;
+
+/* ================= helpers ================= */
+const $ = s => document.querySelector(s);
+const fmtMoney = n => (n==null||isNaN(n)) ? '' : Math.round(n).toLocaleString('en-IN');
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtDate = d => d instanceof Date ? `${String(d.getDate()).padStart(2,'0')}-${MON[d.getMonth()]}-${d.getFullYear()}` : '';
+const esc = s => String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num = v => typeof v==='number' ? v : (parseFloat(String(v??'').replace(/,/g,''))||0);
+const store = {
+  get(k){ try{ return sessionStorage.getItem(k) }catch(e){ return null } },
+  set(k,v){ try{ sessionStorage.setItem(k,v) }catch(e){} },
+  del(k){ try{ sessionStorage.removeItem(k) }catch(e){} }
+};
+function colLetter(i){ let s=''; i++; while(i>0){ const m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26) } return s }
+
+/* ================= login ================= */
+async function sha256(str){
+  if(!(window.crypto && crypto.subtle)) throw new Error('Secure (https) page lagbe.');
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function showApp(){ $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden'); load(); }
+$('#loginForm').addEventListener('submit', async e=>{
+  e.preventDefault();
+  try{
+    const h = await sha256($('#pw').value);
+    if(h===CONFIG.PASSWORD_HASH){ store.set('ok',CONFIG.PASSWORD_HASH); $('#pw').value=''; showApp(); }
+    else $('#loginErr').textContent='Password thik nei.';
+  }catch(err){ $('#loginErr').textContent=err.message; }
+});
+$('#btnLogout').onclick = ()=>{ store.del('ok'); location.reload(); };
+if(store.get('ok')===CONFIG.PASSWORD_HASH) showApp();
+
+/* ================= data pull (Google Sheet) ================= */
+let META={company:'',title:''}, ALL=[];
+let view={f:'all',dept:'',q:''};
+
+function gvizUrl(handler){
+  const tqx='out:json'+(handler?';responseHandler:'+handler:'');
+  return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=${tqx}&gid=${CONFIG.GID}&headers=0&_=${Date.now()}`;
+}
+function parseGviz(text){
+  if(/^\s*</.test(text)) throw new Error('Sheet public na. Google Sheet e Share > "Anyone with the link" > Viewer set korun.');
+  const s=text.indexOf('{'), e=text.lastIndexOf('}');
+  if(s<0||e<0) throw new Error('Google Sheet theke unexpected response.');
+  const o=JSON.parse(text.slice(s,e+1));
+  if(o.status==='error') throw new Error((o.errors&&o.errors[0]&&o.errors[0].detailed_message)||'Google Sheet error.');
+  return o.table.rows;
+}
+function jsonp(){
+  return new Promise((res,rej)=>{
+    const cb='__gv'+Math.random().toString(36).slice(2), sc=document.createElement('script');
+    const t=setTimeout(()=>{cleanup();rej(new Error('Timeout'))},20000);
+    function cleanup(){clearTimeout(t);delete window[cb];sc.remove()}
+    window[cb]=o=>{cleanup(); o.status==='error' ? rej(new Error('Google Sheet error.')) : res(o.table.rows)};
+    sc.onerror=()=>{cleanup();rej(new Error('Load hoy nai'))};
+    sc.src=gvizUrl(cb); document.head.appendChild(sc);
+  });
+}
+async function fetchRows(){
+  const url=gvizUrl();
+  try{
+    const r=await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status);
+    return parseGviz(await r.text());
+  }catch(e){
+    if(/public na/.test(e.message)) throw e;
+    return await jsonp();                  // fallback (no CORS needed)
+  }
+}
+function gv(cell){
+  if(!cell||cell.v==null) return null;
+  const v=cell.v;
+  if(typeof v==='string'){ const m=v.match(/^Date\((\d+),(\d+),(\d+)/); if(m) return new Date(+m[1],+m[2],+m[3]); }
+  return v;
+}
+/* Find each column by its header text (so column letters in the Google Sheet can be anywhere). */
+const HEADER_RX=[
+ /^sl\b/,/staff code/,/^name/,/joining/,/^status/,/last working/,/designation/,/department/,/job location/,
+ /account|card/,/^bank/,/branch/,/routing/,/payroll/,/^basic/,/house rent/,/medical/,/conveyance/,/gross/,
+ /month days/,/per day/,/applicable days/,/leave days/,/payable days/,/applicable salary/,
+ /arrear/,/^bonus/,/^others$/,/^absent.*leave$/,/notice/,/total payable/,/income tax|tds/,/loan|advance/,/other adjustment/,/net payable/,/remarks/];
+function mapColumns(rows){
+  const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
+  const cell=(r,c)=>gv(rows[r]&&rows[r].c&&rows[r].c[c]);
+  let hr=-1;
+  for(let r=0;r<Math.min(rows.length,15)&&hr<0;r++){
+    const lab=(rows[r].c||[]).map((_,c)=>norm(cell(r,c)));
+    if(lab.some(x=>/staff code/.test(x)) && lab.some(x=>/^name/.test(x))) hr=r;
+  }
+  const map=[...Array(NCOL).keys()];            // default: same position as the original sheet
+  if(hr<0) return {map,hr:-1,found:0};
+  const width=Math.max(...rows.slice(0,hr+1).map(r=>(r.c||[]).length));
+  const labels=[]; for(let c=0;c<width;c++){ labels.push(norm(cell(hr,c))||norm(cell(hr-1,c))) }   // merged 2-row headers
+  const used=new Set(); let found=0;
+  HEADER_RX.forEach((rx,k)=>{ const c=labels.findIndex((l,i)=>!used.has(i)&&l&&rx.test(l)); if(c>=0){ map[k]=c; used.add(c); found++ } });
+  return {map,hr,found};
+}
+const INPUT_COLS=[22,25,26,27,29,31,32,33];   // the 8 hand-input columns
+let INPUTS=null;                               // uploaded input sheet (kept in memory only)
+function recalc(a,sm){
+  /* Same formulas as the sheet; Applicable Days comes from Joining / Last Working Day. */
+  if(!a._sheet) a._sheet=a.slice();                       // raw values exactly as in Google Sheet
+  for(let c=0;c<NCOL;c++) a[c]=a._sheet[c];               // always start from the raw sheet values
+  a._in=null;
+  if(INPUTS){                                             // uploaded sheet overrides the 8 input columns
+    const u=INPUTS.map.get(String(a[1]).trim().toLowerCase());
+    INPUT_COLS.forEach(c=>{ a[c]=u?u[c]:0 });
+    a._in=u?'ok':'missing';
+  }
+  const S=num(a[18]), T=num(a[19])||1, W=num(a[22]);
+  a[14]=S*0.6; a[15]=a[14]/2; a[16]=S*0.05; a[17]=S*0.05;
+  a[20]=S/T;
+  if(sm && a[3] instanceof Date) a[21]=applicableDays(a,sm);
+  a[23]=num(a[21])-W;                                     // Payable Days
+  a[24]=a[20]*num(a[21]);                                 // Applicable Salary
+  a[28]=(a[14]/T)*W;                                      // Absent deduction
+  a[30]=a[24]+(num(a[25])+num(a[26])+num(a[27]))-(a[28]+num(a[29]));
+  a[34]=a[30]-(num(a[31])+num(a[32])+num(a[33]));
+}
+function buildModel(rows){
+  const {map,hr,found}=mapColumns(rows);
+  const g=(r,c)=>gv(rows[r]&&rows[r].c&&rows[r].c[c]);
+  const firstText=r=>{ for(let c=0;c<((rows[r]&&rows[r].c)||[]).length;c++){ const v=g(r,c); if(typeof v==='string'&&v.trim()) return v } return '' };
+  const t0=firstText(0), t1=firstText(1);
+  META.company = (typeof t0==='string'&&t0.trim()) || 'WeGro Technologies Limited';
+  META.title   = (typeof t1==='string'&&t1.trim()) || 'HQ Salary Sheet';
+  META.mapped=found;
+  const sm=salaryMonth(), out=[]; META.excluded=[]; META.month=sm;
+  rows.forEach((row,ri)=>{
+    if(hr>=0 && ri<=hr) return;
+    const code=g(ri,map[1]), name=g(ri,map[2]);
+    if(typeof code==='string' && /^[A-Za-z]+-\d+$/.test(code.trim()) && name){
+      const a=[]; for(let c=0;c<NCOL;c++){ let v=g(ri,map[c]); if(typeof v==='string') v=v.trim(); a.push(v) }
+      a._row=ri+1; a._sheet=a.slice(); recalc(a,sm);
+      /* Only this month's payroll: active + resigned-in-this-month. */
+      if(sm){
+        const bom=new Date(sm.y,sm.m,1), eom=new Date(sm.y,sm.m,sm.days);
+        if(a[5] instanceof Date && a[5]<bom){ META.excluded.push([a,'Last Working Day '+fmtDate(a[5])+' (ei maser age resign)']); return }
+        if(a[3] instanceof Date && a[3]>eom){ META.excluded.push([a,'Joining Date '+fmtDate(a[3])+' (ei maser pore join)']); return }
+      }
+      out.push(a);
+    }
+  });
+  return out;
+}
+async function load(){
+  const btn=$('#btnRefresh'); btn.disabled=true; $('#btnXlsx').disabled=true;
+  $('#status').textContent='Loading from Google Sheet...'; $('#banner').innerHTML='';
+  try{
+    const rows=await fetchRows();
+    ALL=buildModel(rows);
+    if(!ALL.length) throw new Error('Kono employee row paoa jay nai. Sheet er gid ('+CONFIG.GID+') thik ache ki?');
+    $('#company').textContent=META.company; $('#title').textContent=META.title; document.title=META.company+' - '+META.title;
+    if(META.excluded.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn"><b>${META.excluded.length} jon bad deya hoyeche</b> (ei maser salary te nei): ${META.excluded.map(([a,w])=>esc(a[1]+' '+a[2])+' – '+esc(w)).join('; ')}</div>`);
+    if(META.mapped<30) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Sheet er header gulo puropuri mile nai (${META.mapped}/${NCOL} column paoa geche). Header er nam bodle thakle bolo.</div>`);
+    fillDepts(); render(); runChecks();
+    showInputInfo(); $('#status').textContent='Updated '+new Date().toLocaleTimeString();
+    $('#btnXlsx').disabled=false;
+  }catch(e){
+    $('#banner').innerHTML=`<div class="banner bad"><b>Data load hoy nai.</b> ${esc(e.message)}</div>`;
+    $('#status').textContent='';
+  }finally{ btn.disabled=false }
+}
+$('#btnRefresh').onclick=load;
+$('#btnPrint').onclick=()=>window.print();
+
+/* ================= render ================= */
+function visible(){
+  const q=view.q.trim().toLowerCase();
+  return ALL.filter(r=>
+    (view.f==='all'||r[4]===view.f) &&
+    (!view.dept||r[7]===view.dept) &&
+    (!q||[r[1],r[2],r[6],r[7]].join(' ').toLowerCase().includes(q)));
+}
+function fillDepts(){
+  const sel=$('#dept'), cur=sel.value;
+  const ds=[...new Set(ALL.map(r=>r[7]).filter(Boolean))].sort();
+  sel.innerHTML='<option value="">All departments</option>'+ds.map(d=>`<option>${esc(d)}</option>`).join('');
+  sel.value=ds.includes(cur)?cur:'';
+}
+function sumCol(rows,c){ return rows.reduce((s,r)=>s+num(r[c]),0) }
+function render(){
+  const rows=visible();
+  /* cards (always for the filtered set) */
+  const act=rows.filter(r=>r[4]==='Active').length, res=rows.filter(r=>r[4]==='Resigned').length;
+  const adj=sumCol(rows,31)+sumCol(rows,32)+sumCol(rows,33);
+  $('#cards').innerHTML=[
+    ['Employees',rows.length,`${act} active · ${res} resigned`],
+    ['Total Gross','৳ '+fmtMoney(sumCol(rows,18)),'Monthly gross salary'],
+    ['Total Payable','৳ '+fmtMoney(sumCol(rows,30)),'After days & deductions'],
+    ['TDS / Loan / Adjustments','৳ '+fmtMoney(adj),'Statutory & other'],
+    ['Net Payable','৳ '+fmtMoney(sumCol(rows,34)),'To be disbursed']
+  ].map(([k,v,s])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+
+  /* head */
+  const groups=[]; COLS.forEach(([,,g],i)=>{ const l=groups[groups.length-1]; l&&l.g===g ? l.n++ : groups.push({g,n:1,i}) });
+  let h='<thead><tr class="g">';
+  groups.forEach(x=>{
+    const sticky = x.i===0 ? ' sticky c0' : '';
+    h+=`<th colspan="${x.n}" class="${sticky.trim()}">${esc(x.g)}</th>`;
+  });
+  h+='</tr><tr class="h">';
+  COLS.forEach(([l],i)=>{ h+=`<th class="${i<3?'sticky c'+i:''}">${esc(l)}</th>` });
+  h+='</tr></thead>';
+
+  /* body */
+  let b='<tbody>';
+  if(!rows.length) b+=`<tr><td colspan="${NCOL}" class="empty">Kono row nei.</td></tr>`;
+  rows.forEach(r=>{
+    b+='<tr>';
+    COLS.forEach(([,t],i)=>{
+      const v=r[i]; let cls=[], txt='';
+      if(i<3) cls.push('sticky','c'+i);
+      if(t==='money'){ cls.push('num'); txt=fmtMoney(num(v)) }
+      else if(t==='int'){ cls.push('ctr'); txt=v==null?'':esc(v) }
+      else if(t==='date'){ cls.push('ctr'); txt=fmtDate(v) }
+      else if(t==='status'){ cls.push('ctr'); txt=v?`<span class="badge ${v==='Resigned'?'res':''}">${esc(v)}</span>`:'' }
+      else if(t==='remark'){ cls.push('wrapcell'); txt=esc(v); if(/hold/i.test(v||'')) cls.push('remark-hold') }
+      else txt=esc(v);
+      b+=`<td class="${cls.join(' ')}">${txt}</td>`;
+    });
+    b+='</tr>';
+  });
+  b+='</tbody>';
+
+  /* foot */
+  let f='<tfoot><tr>';
+  let skip=0;
+  for(let i=0;i<NCOL;i++){
+    if(skip){skip--;continue}
+    if(i===0){ f+=`<td colspan="3" class="sticky c0" style="min-width:346px;max-width:346px">Total (${rows.length})</td>`; skip=2; continue }
+    f+= TOTAL_COLS.includes(i) ? `<td class="num">${fmtMoney(sumCol(rows,i))}</td>` : '<td></td>';
+  }
+  f+='</tr></tfoot>';
+
+  $('#tbl').innerHTML=h+b+f;
+  const gh=document.querySelector('#tbl thead tr.g'); if(gh) $('#tbl').style.setProperty('--g-h',gh.offsetHeight+'px');
+}
+$('#tabs').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  view.f=b.dataset.f; document.querySelectorAll('#tabs button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  render();
+});
+$('#dept').onchange=e=>{view.dept=e.target.value;render()};
+$('#q').oninput=e=>{view.q=e.target.value;render()};
+
+/* ================= Applicable Days rule =================
+   Joined on the 1st (or before the month) -> full month.
+   Joined later -> count from joining date (inclusive) to month end.
+   Resigned -> count up to Last Working Day (inclusive). */
+function salaryMonth(){
+  const m=(META.title||'').match(/(January|February|March|April|May|June|July|August|September|October|November|December)[\s\-']*(\d{4})/i);
+  if(!m) return null;
+  const mo=['january','february','march','april','may','june','july','august','september','october','november','december'].indexOf(m[1].toLowerCase());
+  return {y:+m[2], m:mo, days:new Date(+m[2],mo+1,0).getDate()};
+}
+function applicableDays(r,sm){
+  const bom=new Date(sm.y,sm.m,1), eom=new Date(sm.y,sm.m,sm.days);
+  const start=r[3] instanceof Date && r[3]>bom ? r[3] : bom;
+  const end=r[5] instanceof Date && r[5]<eom ? r[5] : eom;
+  return Math.round((end-start)/86400000)+1;
+}
+
+/* ================= data checks (non-destructive) ================= */
+function runChecks(){
+  const L=[];
+  const seen={}; ALL.forEach(r=>{ if(r[0]!=null) (seen[r[0]]=seen[r[0]]||[]).push(r[1]) });
+  const dups=Object.entries(seen).filter(([,a])=>a.length>1);
+  if(dups.length) L.push(`SL number duplicate: ${dups.map(([k,a])=>k+' (x'+a.length+')').join(', ')}`);
+  ALL.forEach(r=>{
+    const o=r._sheet||[];
+    if(r[4]==='Resigned' && !r[5]) L.push(`${r[1]} ${r[2]}: Resigned kintu Last Working Day nei`);
+    if(!INPUTS && Math.abs(num(o[34])-num(r[34]))>0.5) L.push(`${r[1]} ${r[2]}: Google Sheet er Net Payable ${fmtMoney(num(o[34]))}, page er hisab ${fmtMoney(r[34])}`);
+  });
+  const sm=salaryMonth();
+  if(sm) ALL.forEach(r=>{
+    const o=r._sheet||[];
+    if(num(o[21])!==num(r[21])) L.push(`${r[1]} ${r[2]}: Sheet e Applicable Days ${num(o[21])}, page er hisab ${num(r[21])} (page er ta use hoyeche)`);
+    if(num(r[19])!==sm.days) L.push(`${r[1]} ${r[2]}: Month Days ${num(r[19])}, kintu ${sm.days} hoa uchit`);
+  });
+  const banks={}; ALL.forEach(r=>{ const b=(r[10]||'').toString().trim(); if(b&&b!=='-'){ (banks[b.toLowerCase()]=banks[b.toLowerCase()]||new Set()).add(b) } });
+  Object.values(banks).filter(s=>s.size>1).forEach(s=>L.push('Bank name spelling alada: '+[...s].join(' / ')));
+  const el=$('#checks'); $('#checkList').innerHTML=L.length?L.map(x=>`<li>${esc(x)}</li>`).join(''):'<li>Kono somossa paoa jay nai.</li>';
+  el.querySelector('summary').textContent=`Data checks (${L.length})`;
+}
+
+/* ================= Excel export ================= */
+async function exportXlsx(){
+  if(!window.ExcelJS){ alert('Excel library load hoy nai (internet check korun).'); return }
+  const rows=visible(); if(!rows.length){ alert('Export korar moto row nei.'); return }
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet("Oct' 26 Salary",{views:[{state:'frozen',xSplit:3,ySplit:4}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:8}});
+  const L=colLetter, thin={style:'thin',color:{argb:'FFBFC7BC'}};
+  const border={top:thin,left:thin,bottom:thin,right:thin};
+  const HEAD='FFEFF6EA', GRP='FFDFEADB';
+
+  ws.getCell('A1').value=META.company; ws.getCell('A1').font={bold:true,size:16}; ws.mergeCells('A1:G1');
+  ws.getCell('A2').value=META.title;   ws.getCell('A2').font={bold:true,size:12};
+
+  /* group row 3 */
+  const groups=[]; COLS.forEach(([,,g],i)=>{ const l=groups[groups.length-1]; l&&l.g===g ? l.n++ : groups.push({g,n:1,i}) });
+  groups.forEach(x=>{
+    if(['Additions','Standard Deductions','Total Payable','Statutory & Other Adjustments','Net Payable','Remarks'].includes(x.g)){
+      ws.getCell(3,x.i+1).value=x.g;
+      if(x.n>1) ws.mergeCells(3,x.i+1,3,x.i+x.n);
+      if(x.n===1) ws.mergeCells(3,x.i+1,4,x.i+1);   // spans both header rows, like the original
+    }
+  });
+  COLS.forEach(([l],i)=>{ if(![30,34,35].includes(i)) ws.getCell(4,i+1).value=l });
+  [30,34,35].forEach(i=>{ ws.getCell(3,i+1).value=COLS[i][0]==='Remarks'?'Remarks':COLS[i][0] });
+  for(let r=3;r<=4;r++) for(let c=1;c<=NCOL;c++){
+    const cell=ws.getCell(r,c);
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:r===3?GRP:HEAD}};
+    cell.font={bold:true}; cell.border=border; cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+  }
+  ws.getRow(4).height=48;
+
+  const first=5, last=first+rows.length-1;
+  rows.forEach((d,k)=>{
+    const r=first+k, row=ws.getRow(r);
+    COLS.forEach(([,t],i)=>{
+      const c=row.getCell(i+1); let v=d[i];
+      const sm=salaryMonth();
+      const bom=sm?`DATE(${sm.y},${sm.m+1},1)`:null, eom=sm?`DATE(${sm.y},${sm.m+2},0)`:null;
+      const f={ 14:`S${r}*60%`,15:`O${r}/2`,16:`S${r}*5%`,17:`S${r}*5%`,20:`S${r}/T${r}`,23:`V${r}-W${r}`,24:`U${r}*V${r}`,
+                28:`(O${r}/T${r})*(W${r})`,30:`Y${r}+(Z${r}+AA${r}+AB${r})-(AC${r}+AD${r})`,34:`AE${r}-(SUM(AF${r}:AH${r}))`,
+                ...(sm && d[3] instanceof Date ? {21:`MIN(IF(F${r}="",${eom},F${r}),${eom})-MAX(D${r},${bom})+1`} : {}) }[i];
+      if(f) c.value={formula:f,result:num(v)};
+      else if(t==='money'||t==='int') c.value = v==null ? null : (t==='int'&&i===0 ? v : num(v));
+      else if(t==='date') { c.value = v instanceof Date ? new Date(Date.UTC(v.getFullYear(),v.getMonth(),v.getDate())) : null; c.numFmt='d-mmm-yyyy' }
+      else c.value = v==null ? null : String(v);
+      if(t==='money') c.numFmt='#,##0';
+      if(t==='int'||t==='date'||t==='status') c.alignment={horizontal:'center'};
+      if(i===9||i===12) c.numFmt='@';
+      c.border=border;
+    });
+  });
+
+  /* total row */
+  const tr=last+1; ws.getCell(tr,1).value='Total Salary'+(view.f!=='all'?` (${view.f})`:''); ws.mergeCells(tr,1,tr,7);
+  for(let c=1;c<=NCOL;c++){ const cell=ws.getCell(tr,c); cell.font={bold:true}; cell.border=border; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}};
+    if(TOTAL_COLS.includes(c-1)){ cell.value={formula:`SUBTOTAL(9,${L(c-1)}${first}:${L(c-1)}${last})`,result:sumCol(rows,c-1)}; cell.numFmt='#,##0' } }
+  ws.getCell(tr+2,1).value='Prepared By-'; ws.getCell(tr+2,7).value='Checked By-'; ws.getCell(tr+2,10).value='Approved By-';
+
+  /* widths */
+  const W={0:6,1:10,2:30,3:13,4:10,5:13,6:42,7:28,8:11,9:20,10:22,11:22,12:12,13:11,35:40};
+  for(let i=0;i<NCOL;i++) ws.getColumn(i+1).width = W[i] || 13;
+
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const name=(META.title||'Salary_Sheet').replace(/[^\w\-]+/g,'_')+(view.f!=='all'?'_'+view.f:'')+'.xlsx';
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+}
+$('#btnXlsx').onclick=()=>exportXlsx().catch(e=>alert('Export error: '+e.message));
+
+/* ================= Input sheet upload (xlsx / csv, parsed in the browser) ================= */
+async function inflateRaw(u8){
+  const ds=new DecompressionStream('deflate-raw'), w=ds.writable.getWriter(); w.write(u8); w.close();
+  return new Uint8Array(await new Response(ds.readable).arrayBuffer());
+}
+async function unzip(buf){
+  const dv=new DataView(buf), u8=new Uint8Array(buf);
+  let e=u8.length-22; while(e>=0 && dv.getUint32(e,true)!==0x06054b50) e--;
+  if(e<0) throw new Error('Eta valid .xlsx file na. Excel e Save As > .xlsx kore abar try korun.');
+  const n=dv.getUint16(e+10,true); let p=dv.getUint32(e+16,true); const files={};
+  for(let i=0;i<n;i++){
+    if(dv.getUint32(p,true)!==0x02014b50) break;
+    const method=dv.getUint16(p+10,true), csize=dv.getUint32(p+20,true), nl=dv.getUint16(p+28,true), el=dv.getUint16(p+30,true), cl=dv.getUint16(p+32,true), off=dv.getUint32(p+42,true);
+    files[new TextDecoder().decode(u8.subarray(p+46,p+46+nl))]={method,csize,off};
+    p+=46+nl+el+cl;
+  }
+  return async name=>{
+    const f=files[name]; if(!f) return null;
+    const start=f.off+30+dv.getUint16(f.off+26,true)+dv.getUint16(f.off+28,true);
+    const data=u8.subarray(start,start+f.csize);
+    return new TextDecoder().decode(f.method===0?data:await inflateRaw(data));
+  };
+}
+function colIndex(ref){ let n=0; for(const ch of ref.replace(/[^A-Z]/gi,'').toUpperCase()) n=n*26+ch.charCodeAt(0)-64; return n-1 }
+async function readXlsx(buf){
+  const get=await unzip(buf), dp=new DOMParser(), xml=t=>dp.parseFromString(t,'application/xml');
+  const wbx=await get('xl/workbook.xml'); if(!wbx) throw new Error('Eta valid .xlsx file na.');
+  const sh=xml(wbx).getElementsByTagName('sheet')[0];
+  const rid=sh.getAttribute('r:id');
+  let target='worksheets/sheet1.xml';
+  const rels=await get('xl/_rels/workbook.xml.rels');
+  if(rels) for(const r of xml(rels).getElementsByTagName('Relationship')) if(r.getAttribute('Id')===rid) target=r.getAttribute('Target');
+  const path=target.startsWith('/')?target.slice(1):'xl/'+target;
+  const ss=[], sst=await get('xl/sharedStrings.xml');
+  if(sst) for(const si of xml(sst).getElementsByTagName('si')) ss.push([...si.getElementsByTagName('t')].map(t=>t.textContent).join(''));
+  const sx=await get(path); if(!sx) throw new Error('Sheet data paoa jay nai.');
+  const rows=[];
+  for(const row of xml(sx).getElementsByTagName('row')){
+    const arr=[];
+    for(const c of row.getElementsByTagName('c')){
+      const t=c.getAttribute('t'), vEl=c.getElementsByTagName('v')[0]; let v=null;
+      if(t==='inlineStr') v=[...c.getElementsByTagName('t')].map(x=>x.textContent).join('');
+      else if(vEl){ const raw=vEl.textContent; v = t==='s' ? ss[+raw] : (t==='str'||t==='e') ? raw : t==='b' ? raw==='1' : parseFloat(raw) }
+      arr[colIndex(c.getAttribute('r')||'A1')]=v;
+    }
+    rows.push(arr);
+  }
+  return rows;
+}
+function readCsv(text){
+  text=text.replace(/^﻿/,''); const rows=[]; let row=[],cur='',q=false;
+  for(let i=0;i<text.length;i++){
+    const ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++} else q=false } else cur+=ch }
+    else if(ch==='"') q=true;
+    else if(ch===','){ row.push(cur); cur='' }
+    else if(ch==='\n'||ch==='\r'){ if(ch==='\r'&&text[i+1]==='\n') i++; row.push(cur); rows.push(row); row=[]; cur='' }
+    else cur+=ch;
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row) }
+  return rows;
+}
+function parseInputRows(rows){
+  const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
+  let hr=rows.findIndex(r=>(r||[]).some(x=>HEADER_RX[1].test(norm(x))));
+  if(hr<0) throw new Error('Header row paoa jay nai. Prothom row te "Staff Code" column thakte hobe.');
+  const labels=(rows[hr]||[]).map(norm), used=new Set();
+  const find=rx=>{ const i=labels.findIndex((l,k)=>!used.has(k)&&l&&rx.test(l)); if(i>=0) used.add(i); return i };
+  const codeCol=find(HEADER_RX[1]);
+  const cm={}; INPUT_COLS.forEach(c=>{ cm[c]=find(HEADER_RX[c]) });
+  const missingCols=INPUT_COLS.filter(c=>cm[c]<0).map(c=>COLS[c][0]);
+  const map=new Map(), warn=[], dupes=[];
+  for(let r=hr+1;r<rows.length;r++){
+    const row=rows[r]||[]; const code=String(row[codeCol]==null?'':row[codeCol]).trim();
+    if(!code) continue;
+    const a=new Array(NCOL).fill(0);
+    INPUT_COLS.forEach(c=>{
+      if(cm[c]<0) return;
+      const raw=row[cm[c]];
+      if(raw==null||raw==='') return;
+      const v=typeof raw==='number'?raw:parseFloat(String(raw).replace(/[,\s৳]/g,''));
+      if(isNaN(v)) warn.push(`${code}: "${COLS[c][0]}" e number na ("${raw}"), 0 dhora hoyeche`); else a[c]=v;
+    });
+    const key=code.toLowerCase(); if(map.has(key)) dupes.push(code);
+    a.code=code; map.set(key,a);
+  }
+  if(!map.size) throw new Error('File e kono employee row paoa jay nai.');
+  return {map,warn,dupes,missingCols};
+}
+function showInputInfo(){
+  const st=$('#inStatus'), bn=$('#inbanner'); bn.innerHTML='';
+  if(!INPUTS){ st.textContent='Ekhon Google Sheet er value use hocche.'; st.className='inputs-status'; $('#btnClearIn').classList.add('hidden'); return }
+  $('#btnClearIn').classList.remove('hidden');
+  const matched=ALL.filter(r=>r._in==='ok').length, missing=ALL.filter(r=>r._in==='missing');
+  st.className='inputs-status ok'; st.textContent=`Uploaded: ${INPUTS.name} · ${matched}/${ALL.length} employee mile geche · ${INPUTS.at}`;
+  const known=new Set([...ALL,...(META.excluded||[]).map(x=>x[0])].map(r=>String(r[1]).trim().toLowerCase()));
+  const unknown=[...INPUTS.map.entries()].filter(([k])=>!known.has(k)).map(([,v])=>v.code);
+  const msgs=[];
+  if(INPUTS.missingCols.length) msgs.push(`File e ei column paoa jay nai, tai 0 dhora hoyeche: ${INPUTS.missingCols.map(esc).join(', ')}`);
+  if(missing.length) msgs.push(`File e nei, tai shob input 0 dhora hoyeche (${missing.length} jon): ${missing.slice(0,8).map(r=>esc(r[1]+' '+r[2])).join('; ')}${missing.length>8?' ... ar '+(missing.length-8)+' jon':''}`);
+  if(unknown.length) msgs.push(`File e ache kintu ei maser payroll e nei, ignore kora hoyeche: ${unknown.map(esc).join(', ')}`);
+  if(INPUTS.dupes.length) msgs.push(`File e duplicate Staff Code, shesh row ta dhora hoyeche: ${INPUTS.dupes.map(esc).join(', ')}`);
+  INPUTS.warn.forEach(w=>msgs.push(esc(w)));
+  bn.innerHTML=msgs.map(m=>`<div class="banner warn">${m}</div>`).join('');
+}
+function applyInputs(){
+  const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm));
+  fillDepts(); render(); runChecks(); showInputInfo();
+}
+async function handleUpload(file){
+  try{
+    const isCsv=/\.csv$/i.test(file.name);
+    if(!isCsv && !/\.xlsx$/i.test(file.name)) throw new Error('Shudhu .xlsx ba .csv file support kore. (.xls hole Save As > .xlsx korun.)');
+    const rows=isCsv?readCsv(await file.text()):await readXlsx(await file.arrayBuffer());
+    const parsed=parseInputRows(rows);
+    INPUTS={name:file.name,at:new Date().toLocaleTimeString(),...parsed};
+    if(ALL.length) applyInputs();
+  }catch(e){
+    $('#inStatus').className='inputs-status'; $('#inStatus').innerHTML=`<span style="color:var(--bad)"><b>Upload hoy nai:</b> ${esc(e.message)}</span>`;
+  }
+}
+$('#fileIn').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) handleUpload(f); e.target.value=''; });
+$('#lblUpload').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); $('#fileIn').click() } });
+$('#btnClearIn').onclick=()=>{ INPUTS=null; if(ALL.length) applyInputs(); else showInputInfo(); };
+$('#btnTemplate').onclick=()=>{
+  if(!ALL.length){ alert('Age data load hote din.'); return }
+  const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v };
+  const head=['Staff Code','Name',...INPUT_COLS.map(c=>COLS[c][0])];
+  const lines=[head.map(q).join(',')];
+  ALL.forEach(r=>lines.push([r[1],r[2],...INPUT_COLS.map(c=>num(r[c]))].map(q).join(',')));
+  const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Salary_Input_Template.csv'; document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+};
+showInputInfo();
+</script>
+</body>
+</html>
