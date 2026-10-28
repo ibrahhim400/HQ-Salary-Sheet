@@ -46,6 +46,9 @@ button:disabled{opacity:.6;cursor:default}
 .inputs-status.ok{color:var(--accent)}
 label.btn{display:inline-block}
 @media (max-width:720px){.inputs{grid-template-columns:1fr}}
+.genpanel{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:18px 16px;margin-bottom:12px}
+.genpanel .hint{color:var(--muted);font-size:13px;margin-top:2px}
+.genpanel .btn{padding:10px 22px;font-size:15px}
 /* app */
 .wrap{max-width:1600px;margin:0 auto;padding:20px 16px 40px}
 header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
@@ -112,7 +115,7 @@ details.map{margin-top:10px}
   .inputs,#inbanner{display:none!important}
   @page{size:A3 landscape;margin:8mm}
   body{background:#fff;color:#000;font-size:9px}
-  .monthpick,.actions,.tools,.cards .s,#gate,details.checks,.banner{display:none!important}
+  .genpanel,#mapBox,.monthpick,.actions,.tools,.cards .s,#gate,details.checks,.banner{display:none!important}
   .tablebox{max-height:none;overflow:visible;border:0}
   th,td{padding:3px 5px;position:static!important;box-shadow:none!important;background:#fff!important}
   thead th{background:#eee!important}
@@ -137,19 +140,18 @@ details.map{margin-top:10px}
     <div>
       <h1 id="company">Salary Sheet</h1>
       <div class="sub" id="title"></div>
+      <div class="sub" id="status"></div>
     </div>
     <div class="actions">
       <label class="monthpick">Salary month <input type="month" id="salMonth" aria-label="Salary month"></label>
       <button class="btn primary" id="btnRefresh" type="button" title="Google Sheet theke latest data ane"><svg class="syncico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2M3 12a9 9 0 0 1 15.5-6.2"/><path d="M18.5 2v4h-4M5.5 22v-4h4"/></svg><span id="syncLbl">Sync Data</span></button>
-      <button class="btn" id="btnPrint" type="button">Print</button>
+      <button class="btn" id="btnPrint" type="button" disabled>Print</button>
       <button class="btn" id="btnXlsx" type="button" disabled>Download Excel</button>
       <button class="btn" id="btnLogout" type="button">Logout</button>
     </div>
   </header>
 
   <div id="banner"></div>
-  <section class="cards" id="cards" aria-label="Summary"></section>
-
   <section class="inputs" id="inputsPanel" aria-label="Salary inputs">
     <div>
       <b>Salary inputs upload</b>
@@ -165,6 +167,19 @@ details.map{margin-top:10px}
   </section>
   <div id="inbanner"></div>
 
+  <details class="map" id="mapBox"><summary>Column mapping (nijer hate column select korte paro)</summary><table class="maptbl"><thead><tr><th>Page column</th><th>Google Sheet column</th></tr></thead><tbody id="mapList"></tbody></table></details>
+
+  <section class="genpanel" id="genPanel" aria-live="polite">
+    <div>
+      <b>Salary Sheet</b>
+      <div class="hint" id="genInfo">Prothome Sync Data press koro.</div>
+    </div>
+    <button class="btn primary" id="btnGenerate" type="button" disabled>Generate Salary</button>
+  </section>
+
+  <div id="sheetArea" class="hidden">
+  <section class="cards" id="cards" aria-label="Summary"></section>
+
   <div class="tools">
     <div class="tabs" role="group" aria-label="Status filter" id="tabs">
       <button type="button" data-f="all" aria-pressed="true">All</button>
@@ -173,12 +188,13 @@ details.map{margin-top:10px}
     </div>
     <select id="dept" aria-label="Department"><option value="">All departments</option></select>
     <input type="search" id="q" placeholder="Search name, code, designation..." aria-label="Search">
-    <span class="status" id="status"></span>
+    <button class="btn" id="btnHide" type="button">Hide salary sheet</button>
   </div>
 
   <div class="tablebox"><table id="tbl"></table></div>
-  <details class="checks" id="checks"><summary>Data checks</summary><ul id="checkList"></ul><details class="map"><summary>Column mapping (nijer hate column select korte paro)</summary><table class="maptbl"><thead><tr><th>Page column</th><th>Google Sheet column</th></tr></thead><tbody id="mapList"></tbody></table></details></details>
+  <details class="checks" id="checks"><summary>Data checks</summary><ul id="checkList"></ul></details>
   <div class="sign"><div>Prepared By</div><div>Checked By</div><div>Approved By</div></div>
+  </div>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
@@ -410,6 +426,30 @@ function buildModel(rows){
   out.forEach(a=>{ if(!a._bankBlocked && !String(a[9]==null?'':a[9]).trim()) META.noAccount.push(a) });
   return out;
 }
+/* ================= Generate Salary (sheet stays hidden until this is pressed) ================= */
+let GENERATED=false;
+function showGenState(note){
+  const ok=ALL.length>0;
+  $('#btnGenerate').disabled=!ok;
+  $('#genPanel').classList.toggle('hidden',GENERATED);
+  $('#sheetArea').classList.toggle('hidden',!GENERATED);
+  $('#btnXlsx').disabled=!GENERATED; $('#btnPrint').disabled=!GENERATED;
+  if(!GENERATED){
+    const sm=salaryMonth();
+    $('#genInfo').textContent = !ok ? 'Prothome Sync Data press koro.'
+      : `${note?note+' ':''}Data ready: ${ALL.length} jon employee · ${sm?MONTHS[sm.m]+' '+sm.y:''} · Inputs: ${INPUTS?'uploaded file ('+INPUTS.name+')':'Google Sheet'}. Salary dekhte Generate Salary press koro.`;
+  }
+}
+function generateSalary(){
+  if(!ALL.length) return;
+  const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm));     // fresh calculation
+  fillDepts(); render(); runChecks();
+  GENERATED=true; showGenState();
+  $('#sheetArea').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function hideSalary(note){ GENERATED=false; $('#tbl').innerHTML=''; $('#cards').innerHTML=''; showGenState(note) }
+$('#btnGenerate').onclick=generateSalary;
+$('#btnHide').onclick=()=>hideSalary();
 let RAW=null;
 function ingest(){
   $('#banner').innerHTML='';
@@ -420,11 +460,11 @@ function ingest(){
   if(META.missingCols.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Google Sheet e ei column gulo paoa jay nai (header nam mile nai), tai khali dekhacche: <b>${META.missingCols.map(k=>esc(COLS[k][0])).join(', ')}</b>. Niche "Data checks &gt; Column mapping" e giye dropdown theke sothik column ta select koro (ekbar korle mone rakhbe).</div>`);
   if(META.bankConflicts.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Bank details mile nai:</b> ei Employee ID gulo Google Sheet e ekadhik row te alada account/bank niye ache, tai tader account <b>khali</b> rakha hoyeche: ${META.bankConflicts.map(esc).join(', ')}. Sheet thik kore Sync Data press korun.</div>`);
   if(META.dupAccounts.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Ek-i account number ekadhik employee er:</b> ${META.dupAccounts.map(([a,ids])=>esc(a)+' → '+ids.map(esc).join(' &amp; ')).join('; ')}. Ei employee der account <b>khali</b> rakha hoyeche; salary dewar age thik korun.</div>`);
-  fillDepts(); render(); runChecks(); showInputInfo();
-  $('#btnXlsx').disabled=false;
+  renderMapping(); showInputInfo();
+  GENERATED=false; $('#tbl').innerHTML=''; $('#cards').innerHTML=''; showGenState('Data sync hoyeche.');
 }
 async function load(){
-  const btn=$('#btnRefresh'); btn.disabled=true; btn.classList.add('syncing'); $('#syncLbl').textContent='Syncing...'; $('#btnXlsx').disabled=true;
+  const btn=$('#btnRefresh'); btn.disabled=true; btn.classList.add('syncing'); $('#syncLbl').textContent='Syncing...'; $('#btnXlsx').disabled=true; $('#btnPrint').disabled=true; $('#btnGenerate').disabled=true;
   $('#status').textContent='Google Sheet theke data ashche...'; $('#banner').innerHTML='';
   try{
     RAW=await fetchRows();
@@ -434,6 +474,7 @@ async function load(){
   }catch(e){
     $('#banner').innerHTML=`<div class="banner bad"><b>Sync hoy nai.</b> ${esc(e.message)}</div>`;
     $('#status').textContent='Sync hoy nai';
+    showGenState();
   }finally{ btn.disabled=false; btn.classList.remove('syncing'); $('#syncLbl').textContent='Sync Data' }
 }
 $('#salMonth').addEventListener('change',()=>{ if(RAW){ try{ ingest() }catch(e){ $('#banner').innerHTML=`<div class="banner bad">${esc(e.message)}</div>` } } });
@@ -571,12 +612,15 @@ function runChecks(){
   Object.values(banks).filter(s=>s.size>1).forEach(s=>L.push('Bank name spelling alada: '+[...s].join(' / ')));
   const el=$('#checks'); $('#checkList').innerHTML=L.length?L.map(x=>`<li>${esc(x)}</li>`).join(''):'<li>Kono somossa paoa jay nai.</li>';
   el.querySelector('summary').textContent=`Data checks (${L.length})`;
+}
+
+function renderMapping(){
   const mi=(META.mapInfo||[]), heads=META.heads||[];
   $('#mapList').innerHTML=mi.length?mi.map(([k,c])=>{
     const opts=`<option value="-1"${c<0?' selected':''}>— paoa jay nai / khali —</option>`+heads.map(([i,t])=>`<option value="${i}"${i===c?' selected':''}>${esc(colLetter(i))} · ${esc(t)}</option>`).join('');
     return `<tr><td>${esc(COLS[k][0])}</td><td><select data-k="${k}" aria-label="${esc(COLS[k][0])}">${opts}</select></td></tr>`;
   }).join(''):'<tr><td colspan="2">Header row paoa jay nai (Staff Code / Employee ID ar Name header lagbe).</td></tr>';
-  if(META.missingCols&&META.missingCols.length){ $('#checks').open=true; document.querySelector('details.map').open=true }
+  if(META.missingCols&&META.missingCols.length) $('#mapBox').open=true;
 }
 
 /* ================= Excel export ================= */
@@ -756,7 +800,8 @@ function showInputInfo(){
 }
 function applyInputs(){
   const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm));
-  fillDepts(); render(); runChecks(); showInputInfo();
+  showInputInfo();
+  hideSalary('Input sheet bodlayeche.');
 }
 async function handleUpload(file){
   try{
