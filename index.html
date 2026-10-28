@@ -51,7 +51,9 @@ label.btn{display:inline-block}
 header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
 header.top h1{margin:0;font-size:22px}
 header.top .sub{color:var(--muted);margin-top:2px}
-.actions{display:flex;flex-wrap:wrap;gap:8px}
+.monthpick{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:13px}
+.monthpick input{padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-bottom:16px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
 .card .k{color:var(--muted);font-size:12px}
@@ -94,6 +96,8 @@ details.checks{margin-top:14px;background:var(--card);border:1px solid var(--lin
 details.checks summary{cursor:pointer;font-weight:600}
 details.checks ul{margin:8px 0 0;padding-left:20px}
 details.checks li{margin:3px 0}
+details.map{margin-top:10px}
+.maptbl{width:auto;margin-top:6px}.maptbl th,.maptbl td{padding:3px 10px;text-align:left;font-size:12px}
 .sign{display:flex;gap:80px;margin-top:40px;color:var(--muted)}
 .sign div{min-width:160px;border-top:1px solid var(--muted);padding-top:4px}
 
@@ -101,7 +105,7 @@ details.checks li{margin:3px 0}
   .inputs,#inbanner{display:none!important}
   @page{size:A3 landscape;margin:8mm}
   body{background:#fff;color:#000;font-size:9px}
-  .actions,.tools,.cards .s,#gate,details.checks,.banner{display:none!important}
+  .monthpick,.actions,.tools,.cards .s,#gate,details.checks,.banner{display:none!important}
   .tablebox{max-height:none;overflow:visible;border:0}
   th,td{padding:3px 5px;position:static!important;box-shadow:none!important;background:#fff!important}
   thead th{background:#eee!important}
@@ -128,6 +132,7 @@ details.checks li{margin:3px 0}
       <div class="sub" id="title"></div>
     </div>
     <div class="actions">
+      <label class="monthpick">Salary month <input type="month" id="salMonth" aria-label="Salary month"></label>
       <button class="btn" id="btnRefresh" type="button">Refresh from Google Sheet</button>
       <button class="btn" id="btnPrint" type="button">Print</button>
       <button class="btn primary" id="btnXlsx" type="button" disabled>Download Excel</button>
@@ -165,7 +170,7 @@ details.checks li{margin:3px 0}
   </div>
 
   <div class="tablebox"><table id="tbl"></table></div>
-  <details class="checks" id="checks"><summary>Data checks</summary><ul id="checkList"></ul></details>
+  <details class="checks" id="checks"><summary>Data checks</summary><ul id="checkList"></ul><details class="map"><summary>Column mapping (page column ← Google Sheet header)</summary><table class="maptbl"><thead><tr><th>Page column</th><th>Google Sheet header</th><th>Col</th></tr></thead><tbody id="mapList"></tbody></table></details></details>
   <div class="sign"><div>Prepared By</div><div>Checked By</div><div>Approved By</div></div>
 </main>
 
@@ -272,7 +277,7 @@ function gv(cell){
 /* Find each column by its header text (so column letters in the Google Sheet can be anywhere). */
 const HEADER_RX=[
  /^sl\b/,/staff code/,/^name/,/joining/,/^status/,/last working/,/designation/,/department/,/job location/,
- /account|card/,/^bank/,/branch/,/routing/,/payroll/,/^basic/,/house rent/,/medical/,/conveyance/,/gross/,
+ /^bank account (number|no\.?)$/,/^bank name$/,null,/^routing number$/,/payroll/,/^basic/,/house rent/,/medical/,/conveyance/,/gross/,
  /month days/,/per day/,/applicable days/,/leave days/,/payable days/,/applicable salary/,
  /arrear/,/^bonus/,/^others$/,/^absent.*leave$/,/notice/,/total payable/,/income tax|tds/,/loan|advance/,/other adjustment/,/net payable/,/remarks/];
 function mapColumns(rows){
@@ -283,13 +288,15 @@ function mapColumns(rows){
     const lab=(rows[r].c||[]).map((_,c)=>norm(cell(r,c)));
     if(lab.some(x=>/staff code/.test(x)) && lab.some(x=>/^name/.test(x))) hr=r;
   }
-  const map=[...Array(NCOL).keys()];            // default: same position as the original sheet
-  if(hr<0) return {map,hr:-1,found:0};
+  const map=Array(NCOL).fill(-1);               // not found => blank (never guess by position)
+  if(hr<0){ return {map,hr:-1,found:0,info:[],missing:[1,2]} }
   const width=Math.max(...rows.slice(0,hr+1).map(r=>(r.c||[]).length));
-  const labels=[]; for(let c=0;c<width;c++){ labels.push(norm(cell(hr,c))||norm(cell(hr-1,c))) }   // merged 2-row headers
-  const used=new Set(); let found=0;
-  HEADER_RX.forEach((rx,k)=>{ const c=labels.findIndex((l,i)=>!used.has(i)&&l&&rx.test(l)); if(c>=0){ map[k]=c; used.add(c); found++ } });
-  return {map,hr,found};
+  const labels=[], raw=[];
+  for(let c=0;c<width;c++){ const t=cell(hr,c), t2=hr>0?cell(hr-1,c):null; raw.push(String(t==null||t===''?(t2==null?'':t2):t).trim()); labels.push(norm(raw[c])) }   // merged 2-row headers
+  const used=new Set(); let found=0; const info=[];
+  HEADER_RX.forEach((rx,k)=>{ if(!rx) return; const c=labels.findIndex((l,i)=>!used.has(i)&&l&&rx.test(l)); if(c>=0){ map[k]=c; used.add(c); found++; info.push([COLS[k][0],raw[c],colLetter(c)]) } });
+  const ESSENTIAL=[1,2,3,4,6,7,9,10,18];
+  return {map,hr,found,info,missing:ESSENTIAL.filter(k=>map[k]<0)};
 }
 const INPUT_COLS=[22,25,26,27,29,31,32,33];   // the 8 hand-input columns
 let INPUTS=null;                               // uploaded input sheet (kept in memory only)
@@ -303,6 +310,7 @@ function recalc(a,sm){
     INPUT_COLS.forEach(c=>{ a[c]=u?u[c]:0 });
     a._in=u?'ok':'missing';
   }
+  if(!num(a[19]) && sm) a[19]=sm.days;                    // Month Days blank -> days of the salary month
   const S=num(a[18]), T=num(a[19])||1, W=num(a[22]);
   a[14]=S*0.6; a[15]=a[14]/2; a[16]=S*0.05; a[17]=S*0.05;
   a[20]=S/T;
@@ -314,19 +322,22 @@ function recalc(a,sm){
   a[34]=a[30]-(num(a[31])+num(a[32])+num(a[33]));
 }
 function buildModel(rows){
-  const {map,hr,found}=mapColumns(rows);
+  const {map,hr,found,info,missing}=mapColumns(rows);
   const g=(r,c)=>gv(rows[r]&&rows[r].c&&rows[r].c[c]);
   const firstText=r=>{ for(let c=0;c<((rows[r]&&rows[r].c)||[]).length;c++){ const v=g(r,c); if(typeof v==='string'&&v.trim()) return v } return '' };
   const t0=firstText(0), t1=firstText(1);
   META.company = (typeof t0==='string'&&t0.trim()) || 'WeGro Technologies Limited';
   META.title   = (typeof t1==='string'&&t1.trim()) || 'HQ Salary Sheet';
-  META.mapped=found;
+  if(!$('#salMonth').value) $('#salMonth').value = monthFromText(META.title) || new Date().toISOString().slice(0,7);
+  { const q=salaryMonth(); if(q) META.title=`HQ Salary Sheet For The Month ${MONTHS[q.m]}-${q.y}`; }
+  META.mapped=found; META.mapInfo=info; META.missingCols=missing;
   const sm=salaryMonth(), out=[]; META.excluded=[]; META.month=sm;
   rows.forEach((row,ri)=>{
     if(hr>=0 && ri<=hr) return;
     const code=g(ri,map[1]), name=g(ri,map[2]);
     if(typeof code==='string' && /^[A-Za-z]+-\d+$/.test(code.trim()) && name){
       const a=[]; for(let c=0;c<NCOL;c++){ let v=g(ri,map[c]); if(typeof v==='string') v=v.trim(); a.push(v) }
+      a[11]='Tejgaon Branch';                     // Branch is always Tejgaon Branch
       a[35]='';                                   // Remarks is always left blank (never pulled from the sheet)
       a._row=ri+1; a._sheet=a.slice(); recalc(a,sm);
       /* Only this month's payroll: active + resigned-in-this-month. */
@@ -340,24 +351,30 @@ function buildModel(rows){
   });
   return out;
 }
+let RAW=null;
+function ingest(){
+  $('#banner').innerHTML='';
+  ALL=buildModel(RAW);
+  if(!ALL.length) throw new Error('Kono employee row paoa jay nai. Sheet er gid ('+CONFIG.GID+') ba salary month thik ache ki?');
+  $('#company').textContent=META.company; $('#title').textContent=META.title; document.title=META.company+' - '+META.title;
+  if(META.excluded.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn"><b>${META.excluded.length} jon bad deya hoyeche</b> (ei maser salary te nei): ${META.excluded.map(([a,w])=>esc(a[1]+' '+a[2])+' – '+esc(w)).join('; ')}</div>`);
+  if(META.missingCols.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Google Sheet e ei column gulo paoa jay nai (header nam mile nai), tai khali dekhacche: <b>${META.missingCols.map(k=>esc(COLS[k][0])).join(', ')}</b>. "Data checks &gt; Column mapping" e dekhe nao.</div>`);
+  fillDepts(); render(); runChecks(); showInputInfo();
+  $('#btnXlsx').disabled=false;
+}
 async function load(){
   const btn=$('#btnRefresh'); btn.disabled=true; $('#btnXlsx').disabled=true;
   $('#status').textContent='Loading from Google Sheet...'; $('#banner').innerHTML='';
   try{
-    const rows=await fetchRows();
-    ALL=buildModel(rows);
-    if(!ALL.length) throw new Error('Kono employee row paoa jay nai. Sheet er gid ('+CONFIG.GID+') thik ache ki?');
-    $('#company').textContent=META.company; $('#title').textContent=META.title; document.title=META.company+' - '+META.title;
-    if(META.excluded.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn"><b>${META.excluded.length} jon bad deya hoyeche</b> (ei maser salary te nei): ${META.excluded.map(([a,w])=>esc(a[1]+' '+a[2])+' – '+esc(w)).join('; ')}</div>`);
-    if(META.mapped<30) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Sheet er header gulo puropuri mile nai (${META.mapped}/${NCOL} column paoa geche). Header er nam bodle thakle bolo.</div>`);
-    fillDepts(); render(); runChecks();
-    showInputInfo(); $('#status').textContent='Updated '+new Date().toLocaleTimeString();
-    $('#btnXlsx').disabled=false;
+    RAW=await fetchRows();
+    ingest();
+    $('#status').textContent='Updated '+new Date().toLocaleTimeString();
   }catch(e){
     $('#banner').innerHTML=`<div class="banner bad"><b>Data load hoy nai.</b> ${esc(e.message)}</div>`;
     $('#status').textContent='';
   }finally{ btn.disabled=false }
 }
+$('#salMonth').addEventListener('change',()=>{ if(RAW){ try{ ingest() }catch(e){ $('#banner').innerHTML=`<div class="banner bad">${esc(e.message)}</div>` } } });
 $('#btnRefresh').onclick=load;
 $('#btnPrint').onclick=()=>window.print();
 
@@ -445,11 +462,16 @@ $('#q').oninput=e=>{view.q=e.target.value;render()};
    Joined on the 1st (or before the month) -> full month.
    Joined later -> count from joining date (inclusive) to month end.
    Resigned -> count up to Last Working Day (inclusive). */
-function salaryMonth(){
-  const m=(META.title||'').match(/(January|February|March|April|May|June|July|August|September|October|November|December)[\s\-']*(\d{4})/i);
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function monthFromText(t){
+  const m=String(t||'').match(/(January|February|March|April|May|June|July|August|September|October|November|December)[\s\-']*(\d{4})/i);
   if(!m) return null;
-  const mo=['january','february','march','april','may','june','july','august','september','october','november','december'].indexOf(m[1].toLowerCase());
-  return {y:+m[2], m:mo, days:new Date(+m[2],mo+1,0).getDate()};
+  return m[2]+'-'+String(MONTHS.findIndex(x=>x.toLowerCase()===m[1].toLowerCase())+1).padStart(2,'0');
+}
+function salaryMonth(){
+  const v=($('#salMonth')||{}).value; if(!/^\d{4}-\d{2}$/.test(v||'')) return null;
+  const y=+v.slice(0,4), mo=+v.slice(5)-1;
+  return {y, m:mo, days:new Date(y,mo+1,0).getDate()};
 }
 function applicableDays(r,sm){
   const bom=new Date(sm.y,sm.m,1), eom=new Date(sm.y,sm.m,sm.days);
@@ -479,6 +501,8 @@ function runChecks(){
   Object.values(banks).filter(s=>s.size>1).forEach(s=>L.push('Bank name spelling alada: '+[...s].join(' / ')));
   const el=$('#checks'); $('#checkList').innerHTML=L.length?L.map(x=>`<li>${esc(x)}</li>`).join(''):'<li>Kono somossa paoa jay nai.</li>';
   el.querySelector('summary').textContent=`Data checks (${L.length})`;
+  const mi=(META.mapInfo||[]);
+  $('#mapList').innerHTML=mi.length?mi.map(([a,b,c])=>`<tr><td>${esc(a)}</td><td>${esc(b)}</td><td>${esc(c)}</td></tr>`).join(''):'<tr><td colspan="3">Header row paoa jay nai.</td></tr>';
 }
 
 /* ================= Excel export ================= */
