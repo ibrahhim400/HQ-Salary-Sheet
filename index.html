@@ -276,7 +276,7 @@ function gv(cell){
 }
 /* Find each column by its header text (so column letters in the Google Sheet can be anywhere). */
 const HEADER_RX=[
- /^sl\b/,/staff code/,/^name/,/joining/,/^status/,/last working/,/designation/,/department/,/job location/,
+ /^sl\b/,/staff code|employee id|emp\.? id|staff id/,/^name/,/joining/,/^status/,/last working/,/designation/,/department/,/job location/,
  /^bank account (number|no\.?)$/,/^bank name$/,null,/^routing number$/,/payroll/,/^basic/,/house rent/,/medical/,/conveyance/,/gross/,
  /month days/,/per day/,/applicable days/,/leave days/,/payable days/,/applicable salary/,
  /arrear/,/^bonus/,/^others$/,/^absent.*leave$/,/notice/,/total payable/,/income tax|tds/,/loan|advance/,/other adjustment/,/net payable/,/remarks/];
@@ -286,7 +286,7 @@ function mapColumns(rows){
   let hr=-1;
   for(let r=0;r<Math.min(rows.length,15)&&hr<0;r++){
     const lab=(rows[r].c||[]).map((_,c)=>norm(cell(r,c)));
-    if(lab.some(x=>/staff code/.test(x)) && lab.some(x=>/^name/.test(x))) hr=r;
+    if(lab.some(x=>HEADER_RX[1].test(x)) && lab.some(x=>/^name/.test(x))) hr=r;
   }
   const map=Array(NCOL).fill(-1);               // not found => blank (never guess by position)
   if(hr<0){ return {map,hr:-1,found:0,info:[],missing:[1,2]} }
@@ -331,15 +331,19 @@ function buildModel(rows){
   if(!$('#salMonth').value) $('#salMonth').value = monthFromText(META.title) || new Date().toISOString().slice(0,7);
   { const q=salaryMonth(); if(q) META.title=`HQ Salary Sheet For The Month ${MONTHS[q.m]}-${q.y}`; }
   META.mapped=found; META.mapInfo=info; META.missingCols=missing;
-  const sm=salaryMonth(), out=[]; META.excluded=[]; META.month=sm;
+  const sm=salaryMonth(), out=[], allA=[]; META.excluded=[]; META.month=sm; META.bankConflicts=[]; META.dupAccounts=[]; META.noAccount=[];
   rows.forEach((row,ri)=>{
     if(hr>=0 && ri<=hr) return;
     const code=g(ri,map[1]), name=g(ri,map[2]);
     if(typeof code==='string' && /^[A-Za-z]+-\d+$/.test(code.trim()) && name){
       const a=[]; for(let c=0;c<NCOL;c++){ let v=g(ri,map[c]); if(typeof v==='string') v=v.trim(); a.push(v) }
+      { const cc=rows[ri].c[map[9]]; if(cc && typeof cc.v==='number' && Math.abs(cc.v)>=Math.pow(2,53) && cc.f) a[9]=String(cc.f).replace(/\D/g,'') }   // keep long card numbers exact
+      if(typeof a[9]==='number') a[9]=String(a[9]);
+      if(typeof a[12]==='number') a[12]=String(a[12]);
       a[11]='Tejgaon Branch';                     // Branch is always Tejgaon Branch
       a[35]='';                                   // Remarks is always left blank (never pulled from the sheet)
-      a._row=ri+1; a._sheet=a.slice(); recalc(a,sm);
+      a._row=ri+1; allA.push(a);
+      a._sheet=a.slice(); recalc(a,sm);
       /* Only this month's payroll: active + resigned-in-this-month. */
       if(sm){
         const bom=new Date(sm.y,sm.m,1), eom=new Date(sm.y,sm.m,sm.days);
@@ -349,6 +353,21 @@ function buildModel(rows){
       out.push(a);
     }
   });
+  /* Bank details are tied to the Employee ID (Staff Code): one ID must have exactly one bank detail,
+     and one account number must belong to exactly one ID. Anything else is blanked + reported. */
+  const byId=new Map();
+  allA.forEach(a=>{ const k=String(a[1]).trim().toLowerCase(); (byId.get(k)||byId.set(k,[]).get(k)).push(a) });
+  byId.forEach((list,k)=>{
+    const sig=new Set(list.map(a=>[a[9],a[10],a[12]].map(x=>String(x==null?'':x).trim().toLowerCase().replace(/\s+/g,' ')).join('|')));
+    if(sig.size>1){ META.bankConflicts.push(list[0][1]); list.forEach(a=>{ a[9]=a[10]=a[12]=''; a._bankBlocked=true; a._sheet[9]=a._sheet[10]=a._sheet[12]='' }) }
+  });
+  const byAcct=new Map();
+  out.forEach(a=>{ const acct=String(a[9]==null?'':a[9]).replace(/\s+/g,''); if(/\d{6,}/.test(acct)) (byAcct.get(acct)||byAcct.set(acct,[]).get(acct)).push(a) });   // real numbers only; '-' / 'Paid by Cheque' are fine to repeat
+  byAcct.forEach((list,acct)=>{
+    const ids=[...new Set(list.map(a=>String(a[1]).trim()))];
+    if(ids.length>1){ META.dupAccounts.push([acct,ids]); list.forEach(a=>{ a[9]=a[10]=a[12]=''; a._sheet[9]=a._sheet[10]=a._sheet[12]=''; a._bankBlocked=true }) }
+  });
+  out.forEach(a=>{ if(!a._bankBlocked && !String(a[9]==null?'':a[9]).trim()) META.noAccount.push(a) });
   return out;
 }
 let RAW=null;
@@ -359,6 +378,8 @@ function ingest(){
   $('#company').textContent=META.company; $('#title').textContent=META.title; document.title=META.company+' - '+META.title;
   if(META.excluded.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn"><b>${META.excluded.length} jon bad deya hoyeche</b> (ei maser salary te nei): ${META.excluded.map(([a,w])=>esc(a[1]+' '+a[2])+' – '+esc(w)).join('; ')}</div>`);
   if(META.missingCols.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Google Sheet e ei column gulo paoa jay nai (header nam mile nai), tai khali dekhacche: <b>${META.missingCols.map(k=>esc(COLS[k][0])).join(', ')}</b>. "Data checks &gt; Column mapping" e dekhe nao.</div>`);
+  if(META.bankConflicts.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Bank details mile nai:</b> ei Employee ID gulo Google Sheet e ekadhik row te alada account/bank niye ache, tai tader account <b>khali</b> rakha hoyeche: ${META.bankConflicts.map(esc).join(', ')}. Sheet thik kore Refresh korun.</div>`);
+  if(META.dupAccounts.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Ek-i account number ekadhik employee er:</b> ${META.dupAccounts.map(([a,ids])=>esc(a)+' → '+ids.map(esc).join(' &amp; ')).join('; ')}. Ei employee der account <b>khali</b> rakha hoyeche; salary dewar age thik korun.</div>`);
   fillDepts(); render(); runChecks(); showInputInfo();
   $('#btnXlsx').disabled=false;
 }
@@ -491,6 +512,7 @@ function runChecks(){
     if(r[4]==='Resigned' && !r[5]) L.push(`${r[1]} ${r[2]}: Resigned kintu Last Working Day nei`);
     if(!INPUTS && Math.abs(num(o[34])-num(r[34]))>0.5) L.push(`${r[1]} ${r[2]}: Google Sheet er Net Payable ${fmtMoney(num(o[34]))}, page er hisab ${fmtMoney(r[34])}`);
   });
+  if(META.noAccount.length) L.push(`Account number nei (${META.noAccount.length} jon): ${META.noAccount.map(a=>a[1]+' '+a[2]).join('; ')}`);
   const sm=salaryMonth();
   if(sm) ALL.forEach(r=>{
     const o=r._sheet||[];
