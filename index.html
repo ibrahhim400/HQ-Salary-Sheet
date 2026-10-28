@@ -180,7 +180,8 @@ details.map{margin-top:10px}
 /* ================= CONFIG ================= */
 const CONFIG = {
   SHEET_ID: '1B_Dyh8NdpALA1er9qcsmn_pp2aG-c6tLk2WikIdn_3s',
-  GID: '0',                       // "Oct' 26 Salary" tab
+  GID: '0',                       // gid of the Google Sheet tab (see ...&gid= in its URL)
+  EXCLUDE_IDS: ['HQ-094'],        // Staff Codes kept out of the salary sheet (HQ-094 Rashed Mujib Noman)
   // SHA-256 of the password. Change it: see README.md
   PASSWORD_HASH: '0073c6c3e9a0038a82419078ac4b6fbae8e2a34c9f4758faff7aa8135d66630c'
 };
@@ -295,7 +296,7 @@ function gv(cell){
 /* Find each column by its header text (so column letters in the Google Sheet can be anywhere). */
 const HEADER_RX=[
  /^sl\b/,/staff code|employee id|emp\.? id|staff id/,/^name/,[/^date of joining$/,/^(joining|join) date$/,/^doj$/,/joining/],[/^status$/,/^(employment|employee|emp\.?) status$/],/last working/,/designation/,/department/,/job location/,
- [/^bank account (number|no\.?)$/,/^(bank )?(account|a\/c|acc)\.? ?(number|no\.?)$/,/^bank (account|a\/c)/],[/^bank name$/,/^bank$/,/^name of (the )?bank$/],null,[/^routing number$/,/^routing( no\.?)?$/,/routing/],/payroll/,/^basic/,/house rent/,/medical/,/conveyance/,[/^gross salary$/,/^gross$/,/^gross (pay|amount)/,/^(monthly )?salary$/],
+ [/^bank account (number|no\.?)$/,/^(bank )?(account|a\/c|acc)\.? ?(number|no\.?)$/,/^bank (account|a\/c)/],[/^bank name$/,/^bank$/,/^name of (the )?bank$/],null,[/^routing number$/,/^routing( no\.?)?$/,/routing/],/payroll/,/^basic/,/house rent/,/medical/,/conveyance/,[/^salary( 20\d\d)?$/,/^gross salary$/,/^gross$/,/^gross (pay|amount)/,/^(monthly )?salary$/],
  /month days/,/per day/,/applicable days/,/leave days/,/payable days/,/applicable salary/,
  /arrear/,/^bonus/,/^others$/,/^absent.*leave$/,/notice/,/total payable/,/income tax|tds/,/loan|advance/,/other adjustment/,/net payable/,/remarks/];
 function mapColumns(rows){
@@ -342,7 +343,7 @@ function recalc(a,sm){
     INPUT_COLS.forEach(c=>{ a[c]=u?u[c]:0 });
     a._in=u?'ok':'missing';
   }
-  if(!num(a[19]) && sm) a[19]=sm.days;                    // Month Days blank -> days of the salary month
+  if(sm) a[19]=sm.days;                                   // Month Days = days of the selected salary month (auto)
   const S=num(a[18]), T=num(a[19])||1, W=num(a[22]);
   a[14]=S*0.6; a[15]=a[14]/2; a[16]=S*0.05; a[17]=S*0.05;
   a[20]=S/T;
@@ -357,13 +358,13 @@ function buildModel(rows){
   const {map,hr,found,info,heads,missing}=mapColumns(rows);
   const g=(r,c)=>gv(rows[r]&&rows[r].c&&rows[r].c[c]);
   const firstText=r=>{ for(let c=0;c<((rows[r]&&rows[r].c)||[]).length;c++){ const v=g(r,c); if(typeof v==='string'&&v.trim()) return v } return '' };
-  const t0=firstText(0), t1=firstText(1);
+  const t0=(hr>=1?firstText(0):''), t1=(hr>=2?firstText(1):'');   // only rows above the header row can hold the company / title
   META.company = (typeof t0==='string'&&t0.trim()) || 'WeGro Technologies Limited';
   META.title   = (typeof t1==='string'&&t1.trim()) || 'HQ Salary Sheet';
   if(!$('#salMonth').value) $('#salMonth').value = monthFromText(META.title) || new Date().toISOString().slice(0,7);
   { const q=salaryMonth(); if(q) META.title=`HQ Salary Sheet For The Month ${MONTHS[q.m]}-${q.y}`; }
   META.mapped=found; META.mapInfo=info; META.heads=heads; META.missingCols=missing;
-  const sm=salaryMonth(), out=[], allA=[]; META.excluded=[]; META.month=sm; META.bankConflicts=[]; META.dupAccounts=[]; META.noAccount=[];
+  const sm=salaryMonth(), out=[], allA=[]; setMonthLabels(sm); META.excluded=[]; META.month=sm; META.bankConflicts=[]; META.dupAccounts=[]; META.noAccount=[];
   rows.forEach((row,ri)=>{
     if(hr>=0 && ri<=hr) return;
     const code=g(ri,map[1]), name=g(ri,map[2]);
@@ -374,6 +375,7 @@ function buildModel(rows){
       if(typeof a[12]==='number') a[12]=String(a[12]);
       a[11]='Tejgaon Branch';                     // Branch is always Tejgaon Branch
       a[35]='';                                   // Remarks is always left blank (never pulled from the sheet)
+      if(CONFIG.EXCLUDE_IDS.map(x=>x.toLowerCase()).includes(String(a[1]).trim().toLowerCase())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Manually excluded']); return }
       a._row=ri+1; allA.push(a);
       a._sheet=a.slice(); recalc(a,sm);
       /* Only this month's payroll: active + resigned-in-this-month. */
@@ -532,6 +534,13 @@ function salaryMonth(){
   const y=+v.slice(0,4), mo=+v.slice(5)-1;
   return {y, m:mo, days:new Date(y,mo+1,0).getDate()};
 }
+function setMonthLabels(sm){
+  if(!sm) return;
+  const mon=MONTHS[sm.m], yy=String(sm.y).slice(-2);
+  COLS[30][0]=COLS[30][2]=`${mon}'${yy} Total Payable`;
+  COLS[34][0]=COLS[34][2]=`${mon}'${yy} Net Payable`;
+  META.sheetName=`${mon.slice(0,3)}' ${yy} Salary`;
+}
 function applicableDays(r,sm){
   const bom=new Date(sm.y,sm.m,1), eom=new Date(sm.y,sm.m,sm.days);
   const start=r[3] instanceof Date && r[3]>bom ? r[3] : bom;
@@ -574,7 +583,7 @@ async function exportXlsx(){
   if(!window.ExcelJS){ alert('Excel library load hoy nai (internet check korun).'); return }
   const rows=visible(); if(!rows.length){ alert('Export korar moto row nei.'); return }
   const wb=new ExcelJS.Workbook();
-  const ws=wb.addWorksheet("Oct' 26 Salary",{views:[{state:'frozen',xSplit:3,ySplit:4}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:8}});
+  const ws=wb.addWorksheet(META.sheetName||"Salary",{views:[{state:'frozen',xSplit:3,ySplit:4}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:8}});
   const L=colLetter, thin={style:'thin',color:{argb:'FFBFC7BC'}};
   const border={top:thin,left:thin,bottom:thin,right:thin};
   const HEAD='FFEFF6EA', GRP='FFDFEADB';
@@ -585,7 +594,7 @@ async function exportXlsx(){
   /* group row 3 */
   const groups=[]; COLS.forEach(([,,g],i)=>{ const l=groups[groups.length-1]; l&&l.g===g ? l.n++ : groups.push({g,n:1,i}) });
   groups.forEach(x=>{
-    if(['Additions','Standard Deductions','Total Payable','Statutory & Other Adjustments','Net Payable','Remarks'].includes(x.g)){
+    if([25,28,30,31,34,35].includes(x.i)){
       ws.getCell(3,x.i+1).value=x.g;
       if(x.n>1) ws.mergeCells(3,x.i+1,3,x.i+x.n);
       if(x.n===1) ws.mergeCells(3,x.i+1,4,x.i+1);   // spans both header rows, like the original
