@@ -327,6 +327,7 @@ function buildModel(rows){
     const code=g(ri,map[1]), name=g(ri,map[2]);
     if(typeof code==='string' && /^[A-Za-z]+-\d+$/.test(code.trim()) && name){
       const a=[]; for(let c=0;c<NCOL;c++){ let v=g(ri,map[c]); if(typeof v==='string') v=v.trim(); a.push(v) }
+      a[35]='';                                   // Remarks is always left blank (never pulled from the sheet)
       a._row=ri+1; a._sheet=a.slice(); recalc(a,sm);
       /* Only this month's payroll: active + resigned-in-this-month. */
       if(sm){
