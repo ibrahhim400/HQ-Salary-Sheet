@@ -404,6 +404,7 @@ function buildModel(rows){
       a[11]='Tejgaon Branch';                     // Branch is always Tejgaon Branch
       a[35]='';                                   // Remarks is always left blank (never pulled from the sheet)
       if(CONFIG.EXCLUDE_IDS.map(x=>x.toLowerCase()).includes(String(a[1]).trim().toLowerCase())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Manually excluded']); return }
+      if(/^not[\s_-]*joined$/i.test(String(a[4]==null?'':a[4]).trim())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Status: Not Joined']); return }   // never in the salary sheet
       a._row=ri+1; allA.push(a);
       a._sheet=a.slice(); recalc(a,sm);
       /* Only this month's payroll: active + resigned-in-this-month. */
