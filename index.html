@@ -51,6 +51,18 @@ label.btn{display:inline-block}
 .genpanel{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:18px 16px;margin-bottom:12px}
 .genpanel .hint{color:var(--muted);font-size:13px;margin-top:2px}
 .genpanel .btn{padding:10px 22px;font-size:15px}
+.hcell{display:flex;align-items:center;justify-content:center;gap:6px}
+.fbtn{flex:none;border:1px solid transparent;background:none;border-radius:5px;padding:0 5px;line-height:18px;cursor:pointer;color:var(--muted);font-size:12px}
+.fbtn:hover{background:var(--hover);border-color:var(--line)}
+.fbtn.on{background:var(--accent);color:var(--accent-ink)}
+.fpop{position:fixed;z-index:60;width:260px;max-height:70vh;display:flex;flex-direction:column;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px;box-shadow:0 8px 28px rgba(0,0,0,.22)}
+.fpop input[type=search]{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:7px;background:var(--bg)}
+.fpop .frow{display:flex;gap:6px;flex-wrap:wrap}
+.fpop .frow button{padding:5px 9px;font-size:12px}
+.fpop .flist{overflow:auto;border:1px solid var(--line);border-radius:7px;max-height:42vh;min-height:60px}
+.fpop label{display:flex;gap:8px;align-items:center;padding:4px 8px;cursor:pointer;font-size:13px}
+.fpop label:hover{background:var(--hover)}
+.fpop .fnote{color:var(--muted);font-size:12px;padding:6px 8px}
 /* app */
 .wrap{max-width:1600px;margin:0 auto;padding:20px 16px 40px}
 header.top{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;justify-content:space-between;margin-bottom:16px}
@@ -192,6 +204,7 @@ details.map{margin-top:10px}
     <select id="dept" aria-label="Department"><option value="">All departments</option></select>
     <input type="search" id="q" placeholder="Search name, code, designation..." aria-label="Search">
     <span class="chip" id="adjChip"></span>
+    <button class="btn hidden" id="btnClearFilters" type="button">Clear column filters</button>
     <button class="btn" id="btnHide" type="button">Hide salary sheet</button>
   </div>
 
@@ -200,6 +213,8 @@ details.map{margin-top:10px}
   <div class="sign"><div>Prepared By</div><div>Checked By</div><div>Approved By</div></div>
   </div>
 </main>
+
+<div id="fpop" class="fpop hidden" role="dialog" aria-label="Column filter"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script>
@@ -474,12 +489,13 @@ function showGenState(note){
 }
 function generateSalary(){
   if(!ALL.length) return;
+  Object.keys(colFilters).forEach(k=>delete colFilters[k]);
   const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm));     // fresh calculation
   fillDepts(); render(); runChecks();
   GENERATED=true; showGenState();
   $('#sheetArea').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function hideSalary(note){ GENERATED=false; $('#tbl').innerHTML=''; $('#cards').innerHTML=''; showGenState(note) }
+function hideSalary(note){ Object.keys(colFilters).forEach(k=>delete colFilters[k]); GENERATED=false; $('#tbl').innerHTML=''; $('#cards').innerHTML=''; showGenState(note) }
 $('#btnGenerate').onclick=generateSalary;
 $('#btnHide').onclick=()=>hideSalary();
 let RAW=null;
@@ -517,12 +533,26 @@ $('#btnRefresh').onclick=load;
 $('#btnPrint').onclick=()=>window.print();
 
 /* ================= render ================= */
-function visible(){
-  const q=view.q.trim().toLowerCase();
+const colFilters={};                               // {columnIndex: Set(of cell texts that are allowed)}
+function cellText(r,i){
+  const t=COLS[i][1], v=r[i];
+  if(v==null||v==='') return '(Blank)';
+  if(t==='money') return fmtMoney(num(v));
+  if(t==='date') return v instanceof Date?fmtDate(v):String(v);
+  return String(v).trim()||'(Blank)';
+}
+function visible(skipCol){
+  const q=view.q.trim().toLowerCase(), act=Object.entries(colFilters).filter(([i])=>+i!==skipCol);
   return ALL.filter(r=>
     (view.f==='all'||r[4]===view.f) &&
     (!view.dept||r[7]===view.dept) &&
-    (!q||[r[1],r[2],r[6],r[7]].join(' ').toLowerCase().includes(q)));
+    (!q||[r[1],r[2],r[6],r[7]].join(' ').toLowerCase().includes(q)) &&
+    act.every(([i,set])=>set.has(cellText(r,+i))));
+}
+function filterCount(){ return Object.keys(colFilters).length }
+function syncFilterUi(){
+  const n=filterCount(), b=$('#btnClearFilters');
+  b.classList.toggle('hidden',!n); b.textContent=`Clear column filters (${n})`;
 }
 function fillDepts(){
   const sel=$('#dept'), cur=sel.value;
@@ -552,7 +582,7 @@ function render(){
     h+=`<th colspan="${x.n}" class="${sticky.trim()}">${esc(x.g)}</th>`;
   });
   h+='</tr><tr class="h">';
-  COLS.forEach(([l],i)=>{ h+=`<th class="${i<3?'sticky c'+i:''}">${esc(l)}</th>` });
+  COLS.forEach(([l],i)=>{ h+=`<th class="${i<3?'sticky c'+i:''}"><div class="hcell"><span>${esc(l)}</span><button type="button" class="fbtn${colFilters[i]?' on':''}" data-c="${i}" aria-label="Filter: ${esc(l)}" aria-haspopup="true" title="Filter">${colFilters[i]?'&#9660;':'&#9662;'}</button></div></th>` });
   h+='</tr></thead>';
 
   /* body */
@@ -586,6 +616,7 @@ function render(){
   f+='</tr></tfoot>';
 
   $('#tbl').innerHTML=h+b+f;
+  syncFilterUi();
   const gh=document.querySelector('#tbl thead tr.g'); if(gh) $('#tbl').style.setProperty('--g-h',gh.offsetHeight+'px');
 }
 $('#tabs').addEventListener('click',e=>{
@@ -624,6 +655,58 @@ function applicableDays(r,sm){
   const end=r[5] instanceof Date && r[5]<eom ? r[5] : eom;
   return Math.round((end-start)/86400000)+1;
 }
+
+
+/* ================= Column filters (Excel-style) ================= */
+let fCol=-1, fAll=[], fSel=new Set();
+function fillFilterList(){
+  const q=($('#fq').value||'').trim().toLowerCase(), box=$('#flist');
+  const list=fAll.filter(v=>!q||v.toLowerCase().includes(q)), MAX=300;
+  box.innerHTML=list.slice(0,MAX).map(v=>`<label><input type="checkbox" value="${esc(v)}"${fSel.has(v)?' checked':''}> <span>${esc(v)}</span></label>`).join('')
+    +(list.length>MAX?`<div class="fnote">Aro ${list.length-MAX} ta ache, search diye khujo.</div>`:'')
+    +(!list.length?'<div class="fnote">Kichu paoa jay nai.</div>':'');
+}
+function openFilter(c,btn){
+  fCol=c;
+  const rows=visible(c), seen=new Map();
+  rows.forEach(r=>{ const t=cellText(r,c); if(!seen.has(t)) seen.set(t,r[c]) });
+  const type=COLS[c][1], key=v=>type==='money'||type==='int'?num(v):v instanceof Date?v.getTime():String(v==null?'':v).toLowerCase();
+  fAll=[...seen.keys()].sort((a,b)=>{ if(a==='(Blank)') return 1; if(b==='(Blank)') return -1; const x=key(seen.get(a)),y=key(seen.get(b)); return typeof x==='number'&&typeof y==='number'?x-y:String(x).localeCompare(String(y),undefined,{numeric:true}) });
+  fSel=new Set(colFilters[c]?[...colFilters[c]].filter(v=>seen.has(v)):fAll);
+  const pop=$('#fpop');
+  pop.innerHTML=`<b style="font-size:13px">${esc(COLS[c][0])}</b>
+    <input type="search" id="fq" placeholder="Search..." aria-label="Search values">
+    <div class="frow"><button type="button" class="btn" id="fAll">Select all</button><button type="button" class="btn" id="fNone">Clear</button></div>
+    <div class="flist" id="flist"></div>
+    <div class="frow"><button type="button" class="btn primary" id="fOk">OK</button><button type="button" class="btn" id="fCancel">Cancel</button><button type="button" class="btn" id="fReset">Remove filter</button></div>`;
+  fillFilterList();
+  pop.classList.remove('hidden');
+  const br=btn.getBoundingClientRect(), w=260;
+  pop.style.left=Math.max(8,Math.min(br.left,innerWidth-w-8))+'px';
+  pop.style.top=Math.min(br.bottom+4,innerHeight-Math.min(pop.offsetHeight,innerHeight*0.7)-8)+'px';
+  $('#fq').focus();
+}
+function closeFilter(){ $('#fpop').classList.add('hidden'); fCol=-1 }
+document.addEventListener('click',e=>{
+  const b=e.target.closest('.fbtn');
+  if(b){ const c=+b.dataset.c; if(fCol===c){ closeFilter() } else openFilter(c,b); return }
+  const pop=$('#fpop'); if(!pop.contains(e.target)) { if(fCol>=0) closeFilter(); return }
+  const id=e.target.id;
+  if(id==='fAll'){ fAll.forEach(v=>fSel.add(v)); fillFilterList() }
+  else if(id==='fNone'){ fSel.clear(); fillFilterList() }
+  else if(id==='fCancel') closeFilter();
+  else if(id==='fReset'){ delete colFilters[fCol]; closeFilter(); render() }
+  else if(id==='fOk'){
+    if(fSel.size===fAll.length) delete colFilters[fCol]; else colFilters[fCol]=new Set(fSel);
+    closeFilter(); render();
+  }
+});
+document.addEventListener('change',e=>{ const cb=e.target; if(cb.closest&&cb.closest('#flist')&&cb.type==='checkbox'){ cb.checked?fSel.add(cb.value):fSel.delete(cb.value) } });
+document.addEventListener('input',e=>{ if(e.target.id==='fq') fillFilterList() });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape'&&fCol>=0) closeFilter() });
+window.addEventListener('resize',()=>{ if(fCol>=0) closeFilter() });
+$('.tablebox').addEventListener('scroll',()=>{ if(fCol>=0) closeFilter() });
+$('#btnClearFilters').onclick=()=>{ Object.keys(colFilters).forEach(k=>delete colFilters[k]); render() };
 
 /* ================= data checks (non-destructive) ================= */
 function runChecks(){
