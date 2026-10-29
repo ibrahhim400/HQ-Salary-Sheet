@@ -46,6 +46,8 @@ button:disabled{opacity:.6;cursor:default}
 .inputs-status.ok{color:var(--accent)}
 label.btn{display:inline-block}
 @media (max-width:720px){.inputs{grid-template-columns:1fr}}
+.chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;background:var(--warn-bg);color:var(--warn)}
+.chip.ok{background:var(--ok-bg);color:var(--accent)}
 .genpanel{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:18px 16px;margin-bottom:12px}
 .genpanel .hint{color:var(--muted);font-size:13px;margin-top:2px}
 .genpanel .btn{padding:10px 22px;font-size:15px}
@@ -115,7 +117,7 @@ details.map{margin-top:10px}
   .inputs,#inbanner{display:none!important}
   @page{size:A3 landscape;margin:8mm}
   body{background:#fff;color:#000;font-size:9px}
-  .genpanel,#mapBox,.monthpick,.actions,.tools,.cards .s,#gate,details.checks,.banner{display:none!important}
+  .chip,.genpanel,#mapBox,.monthpick,.actions,.tools,.cards .s,#gate,details.checks,.banner{display:none!important}
   .tablebox{max-height:none;overflow:visible;border:0}
   th,td{padding:3px 5px;position:static!important;box-shadow:none!important;background:#fff!important}
   thead th{background:#eee!important}
@@ -146,7 +148,7 @@ details.map{margin-top:10px}
       <label class="monthpick">Salary month <input type="month" id="salMonth" aria-label="Salary month"></label>
       <button class="btn primary" id="btnRefresh" type="button" title="Google Sheet theke latest data ane"><svg class="syncico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2M3 12a9 9 0 0 1 15.5-6.2"/><path d="M18.5 2v4h-4M5.5 22v-4h4"/></svg><span id="syncLbl">Sync Data</span></button>
       <button class="btn" id="btnPrint" type="button" disabled>Print</button>
-      <button class="btn" id="btnXlsx" type="button" disabled>Download Excel</button>
+      <button class="btn primary" id="btnXlsx" type="button" disabled title="Age Upload input sheet > Adjust from Salary press koro">Download Final Salary Sheet</button>
       <button class="btn" id="btnLogout" type="button">Logout</button>
     </div>
   </header>
@@ -155,13 +157,14 @@ details.map{margin-top:10px}
   <section class="inputs" id="inputsPanel" aria-label="Salary inputs">
     <div>
       <b>Salary inputs upload</b>
-      <div class="hint">Hand-input 8 ta column (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, TDS, Loan/Advance, Other Adjustment) ei file theke ashbe, <b>Staff Code</b> diye mele. Upload na korle Google Sheet er value use hobe.</div>
+      <div class="hint">Step 1: input sheet upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, TDS, Loan/Advance, Other Adjustment, <b>Staff Code</b> diye mele). Step 2: <b>Adjust from Salary</b> press koro, shob adjustment salary theke deduct/add hoye sheet e dekhabe. Step 3: <b>Download Final Salary Sheet</b>.</div>
     </div>
     <div class="inputs-actions">
       <button class="btn" id="btnTemplate" type="button">Download template</button>
       <label class="btn primary" for="fileIn" role="button" tabindex="0" id="lblUpload">Upload input sheet</label>
       <input type="file" id="fileIn" accept=".xlsx,.csv" class="hidden">
       <button class="btn hidden" id="btnClearIn" type="button">Clear</button>
+      <button class="btn primary" id="btnAdjust" type="button" disabled title="Age input sheet upload koro">Adjust from Salary</button>
     </div>
     <div class="inputs-status" id="inStatus"></div>
   </section>
@@ -188,6 +191,7 @@ details.map{margin-top:10px}
     </div>
     <select id="dept" aria-label="Department"><option value="">All departments</option></select>
     <input type="search" id="q" placeholder="Search name, code, designation..." aria-label="Search">
+    <span class="chip" id="adjChip"></span>
     <button class="btn" id="btnHide" type="button">Hide salary sheet</button>
   </div>
 
@@ -205,7 +209,7 @@ const CONFIG = {
   GID: '0',                       // gid of the Google Sheet tab (see ...&gid= in its URL)
   EXCLUDE_IDS: ['HQ-094'],        // Staff Codes kept out of the salary sheet (HQ-094 Rashed Mujib Noman)
   // SHA-256 of the password. Change it: see README.md
-  PASSWORD_HASH: '0073c6c3e9a0038a82419078ac4b6fbae8e2a34c9f4758faff7aa8135d66630c'
+  PASSWORD_HASH: '615ffc50fec7b87c132f963f89b3004e35e08113b354af8766b9f95459aa0971'
 };
 
 /* Columns follow the sheet exactly: A=0 ... AJ=35 */
@@ -355,12 +359,14 @@ function loadOverrides(){ try{ return JSON.parse(localStorage.getItem(OVR_KEY)||
 function saveOverrides(o){ try{ localStorage.setItem(OVR_KEY,JSON.stringify(o)) }catch(e){} }
 const INPUT_COLS=[22,25,26,27,29,31,32,33];   // the 8 hand-input columns
 let INPUTS=null;                               // uploaded input sheet (kept in memory only)
+let ADJUSTED=false;                            // true only after 'Adjust from Salary' was pressed
 function recalc(a,sm){
   /* Same formulas as the sheet; Applicable Days comes from Joining / Last Working Day. */
   if(!a._sheet) a._sheet=a.slice();                       // raw values exactly as in Google Sheet
   for(let c=0;c<NCOL;c++) a[c]=a._sheet[c];               // always start from the raw sheet values
   a._in=null;
-  if(INPUTS){                                             // uploaded sheet overrides the 8 input columns
+  INPUT_COLS.forEach(c=>{ a[c]=0 });                      // before adjustment: salary has no adjustments
+  if(INPUTS && ADJUSTED){                                 // 'Adjust from Salary' applies the uploaded sheet
     const u=INPUTS.map.get(String(a[1]).trim().toLowerCase());
     INPUT_COLS.forEach(c=>{ a[c]=u?u[c]:0 });
     a._in=u?'ok':'missing';
@@ -424,6 +430,8 @@ function buildModel(rows){
     if(ids.length>1){ META.dupAccounts.push([acct,ids]); list.forEach(a=>{ a[9]=a[10]=a[12]=''; a._sheet[9]=a._sheet[10]=a._sheet[12]=''; a._bankBlocked=true }) }
   });
   out.forEach(a=>{ if(!a._bankBlocked && !String(a[9]==null?'':a[9]).trim()) META.noAccount.push(a) });
+  out.forEach((a,i)=>{ a[0]=i+1; a._sheet[0]=i+1 });          // SL = 1,2,3... in this salary sheet
+  META.hasV=map[21]>=0;
   return out;
 }
 /* ================= Generate Salary (sheet stays hidden until this is pressed) ================= */
@@ -433,11 +441,15 @@ function showGenState(note){
   $('#btnGenerate').disabled=!ok;
   $('#genPanel').classList.toggle('hidden',GENERATED);
   $('#sheetArea').classList.toggle('hidden',!GENERATED);
-  $('#btnXlsx').disabled=!GENERATED; $('#btnPrint').disabled=!GENERATED;
+  $('#btnPrint').disabled=!GENERATED;
+  $('#btnXlsx').disabled=!(GENERATED&&ADJUSTED);
+  $('#btnXlsx').title=ADJUSTED?'Final salary sheet .xlsx download':'Age Upload input sheet > Adjust from Salary press koro';
+  $('#adjChip').textContent=ADJUSTED?`Adjustment applied: ${INPUTS?INPUTS.name:''}`:'Adjustment apply kora hoy nai (Adjust from Salary press koro)';
+  $('#adjChip').classList.toggle('ok',ADJUSTED);
   if(!GENERATED){
     const sm=salaryMonth();
     $('#genInfo').textContent = !ok ? 'Prothome Sync Data press koro.'
-      : `${note?note+' ':''}Data ready: ${ALL.length} jon employee · ${sm?MONTHS[sm.m]+' '+sm.y:''} · Inputs: ${INPUTS?'uploaded file ('+INPUTS.name+')':'Google Sheet'}. Salary dekhte Generate Salary press koro.`;
+      : `${note?note+' ':''}Data ready: ${ALL.length} jon employee · ${sm?MONTHS[sm.m]+' '+sm.y:''} · Adjustment: ${ADJUSTED?'applied ('+INPUTS.name+')':'apply kora hoy nai'}. Salary dekhte Generate Salary press koro.`;
   }
 }
 function generateSalary(){
@@ -599,13 +611,12 @@ function runChecks(){
   ALL.forEach(r=>{
     const o=r._sheet||[];
     if(r[4]==='Resigned' && !r[5]) L.push(`${r[1]} ${r[2]}: Resigned kintu Last Working Day nei`);
-    if(!INPUTS && Math.abs(num(o[34])-num(r[34]))>0.5) L.push(`${r[1]} ${r[2]}: Google Sheet er Net Payable ${fmtMoney(num(o[34]))}, page er hisab ${fmtMoney(r[34])}`);
   });
   if(META.noAccount.length) L.push(`Account number nei (${META.noAccount.length} jon): ${META.noAccount.map(a=>a[1]+' '+a[2]).join('; ')}`);
   const sm=salaryMonth();
   if(sm) ALL.forEach(r=>{
     const o=r._sheet||[];
-    if(num(o[21])!==num(r[21])) L.push(`${r[1]} ${r[2]}: Sheet e Applicable Days ${num(o[21])}, page er hisab ${num(r[21])} (page er ta use hoyeche)`);
+    if(META.hasV && num(o[21])!==num(r[21])) L.push(`${r[1]} ${r[2]}: Sheet e Applicable Days ${num(o[21])}, page er hisab ${num(r[21])} (page er ta use hoyeche)`);
     if(num(r[19])!==sm.days) L.push(`${r[1]} ${r[2]}: Month Days ${num(r[19])}, kintu ${sm.days} hoa uchit`);
   });
   const banks={}; ALL.forEach(r=>{ const b=(r[10]||'').toString().trim(); if(b&&b!=='-'){ (banks[b.toLowerCase()]=banks[b.toLowerCase()]||new Set()).add(b) } });
@@ -626,7 +637,8 @@ function renderMapping(){
 /* ================= Excel export ================= */
 async function exportXlsx(){
   if(!window.ExcelJS){ alert('Excel library load hoy nai (internet check korun).'); return }
-  const rows=visible(); if(!rows.length){ alert('Export korar moto row nei.'); return }
+  if(!ADJUSTED){ alert('Age Adjust from Salary press koro.'); return }
+  const rows=ALL.slice(); if(!rows.length){ alert('Export korar moto row nei.'); return }   // final sheet = all employees, no filter
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet(META.sheetName||"Salary",{views:[{state:'frozen',xSplit:3,ySplit:4}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:8}});
   const L=colLetter, thin={style:'thin',color:{argb:'FFBFC7BC'}};
@@ -676,7 +688,7 @@ async function exportXlsx(){
   });
 
   /* total row */
-  const tr=last+1; ws.getCell(tr,1).value='Total Salary'+(view.f!=='all'?` (${view.f})`:''); ws.mergeCells(tr,1,tr,7);
+  const tr=last+1; ws.getCell(tr,1).value='Total Salary'; ws.mergeCells(tr,1,tr,7);
   for(let c=1;c<=NCOL;c++){ const cell=ws.getCell(tr,c); cell.font={bold:true}; cell.border=border; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}};
     if(TOTAL_COLS.includes(c-1)){ cell.value={formula:`SUBTOTAL(9,${L(c-1)}${first}:${L(c-1)}${last})`,result:sumCol(rows,c-1)}; cell.numFmt='#,##0' } }
   ws.getCell(tr+2,1).value='Prepared By-'; ws.getCell(tr+2,7).value='Checked By-'; ws.getCell(tr+2,10).value='Approved By-';
@@ -687,7 +699,7 @@ async function exportXlsx(){
 
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const name=(META.title||'Salary_Sheet').replace(/[^\w\-]+/g,'_')+(view.f!=='all'?'_'+view.f:'')+'.xlsx';
+  const name=(META.title||'Salary_Sheet').replace(/[^\w\-]+/g,'_').replace(/^HQ_Salary_Sheet/,'HQ_Final_Salary_Sheet')+'.xlsx';
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
 }
@@ -784,10 +796,12 @@ function parseInputRows(rows){
 }
 function showInputInfo(){
   const st=$('#inStatus'), bn=$('#inbanner'); bn.innerHTML='';
-  if(!INPUTS){ st.textContent='Ekhon Google Sheet er value use hocche.'; st.className='inputs-status'; $('#btnClearIn').classList.add('hidden'); return }
+  $('#btnAdjust').disabled=!(INPUTS&&ALL.length);
+  if(!INPUTS){ st.textContent='Input sheet upload kora hoy nai. Kono adjustment (absent, bonus, TDS ityadi) apply hoy nai.'; st.className='inputs-status'; $('#btnClearIn').classList.add('hidden'); return }
   $('#btnClearIn').classList.remove('hidden');
-  const matched=ALL.filter(r=>r._in==='ok').length, missing=ALL.filter(r=>r._in==='missing');
-  st.className='inputs-status ok'; st.textContent=`Uploaded: ${INPUTS.name} · ${matched}/${ALL.length} employee mile geche · ${INPUTS.at}`;
+  const has=r=>INPUTS.map.has(String(r[1]).trim().toLowerCase());
+  const matched=ALL.filter(has).length, missing=ALL.filter(r=>!has(r));
+  st.className='inputs-status ok'; st.textContent=`Uploaded: ${INPUTS.name} · ${matched}/${ALL.length} employee mile geche · ${INPUTS.at} · ${ADJUSTED?'Adjustment salary te apply kora hoyeche.':'Ekhono apply hoy nai, Adjust from Salary press koro.'}`;
   const known=new Set([...ALL,...(META.excluded||[]).map(x=>x[0])].map(r=>String(r[1]).trim().toLowerCase()));
   const unknown=[...INPUTS.map.entries()].filter(([k])=>!known.has(k)).map(([,v])=>v.code);
   const msgs=[];
@@ -809,15 +823,16 @@ async function handleUpload(file){
     if(!isCsv && !/\.xlsx$/i.test(file.name)) throw new Error('Shudhu .xlsx ba .csv file support kore. (.xls hole Save As > .xlsx korun.)');
     const rows=isCsv?readCsv(await file.text()):await readXlsx(await file.arrayBuffer());
     const parsed=parseInputRows(rows);
-    INPUTS={name:file.name,at:new Date().toLocaleTimeString(),...parsed};
-    if(ALL.length) applyInputs();
+    INPUTS={name:file.name,at:new Date().toLocaleTimeString(),...parsed}; ADJUSTED=false;
+    if(ALL.length) applyInputs(); else showInputInfo();
   }catch(e){
     $('#inStatus').className='inputs-status'; $('#inStatus').innerHTML=`<span style="color:var(--bad)"><b>Upload hoy nai:</b> ${esc(e.message)}</span>`;
   }
 }
 $('#fileIn').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) handleUpload(f); e.target.value=''; });
 $('#lblUpload').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); $('#fileIn').click() } });
-$('#btnClearIn').onclick=()=>{ INPUTS=null; if(ALL.length) applyInputs(); else showInputInfo(); };
+$('#btnClearIn').onclick=()=>{ INPUTS=null; ADJUSTED=false; if(ALL.length) applyInputs(); else showInputInfo(); };
+$('#btnAdjust').onclick=()=>{ if(!INPUTS||!ALL.length) return; ADJUSTED=true; generateSalary(); showInputInfo() };
 $('#btnTemplate').onclick=()=>{
   if(!ALL.length){ alert('Age data load hote din.'); return }
   const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v };
