@@ -53,6 +53,8 @@ label.btn{display:inline-block}
 .genpanel{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:18px 16px;margin-bottom:12px}
 .genpanel .hint{color:var(--muted);font-size:13px;margin-top:2px}
 .genpanel .btn{padding:10px 22px;font-size:15px}
+.gfrozen{position:sticky;left:0;z-index:5;min-width:346px}
+.glabel{position:sticky;left:370px;display:inline-block;padding:0 8px}
 .hcell{display:flex;align-items:center;justify-content:center;gap:6px}
 .fbtn{flex:none;border:1px solid transparent;background:none;border-radius:5px;padding:0 5px;line-height:18px;cursor:pointer;color:var(--muted);font-size:12px}
 .fbtn:hover{background:var(--hover);border-color:var(--line)}
@@ -585,8 +587,9 @@ function render(){
   const groups=[]; COLS.forEach(([,,g],i)=>{ const l=groups[groups.length-1]; l&&l.g===g ? l.n++ : groups.push({g,n:1,i}) });
   let h='<thead><tr class="g">';
   groups.forEach(x=>{
-    const sticky = x.i===0 ? ' sticky c0' : '';
-    h+=`<th colspan="${x.n}" class="${sticky.trim()}">${esc(x.g)}</th>`;
+    if(x.i===0 && x.n>3){   // frozen columns (SL, Staff Code, Name) keep their own 'Employee' heading
+      h+=`<th colspan="3" class="gfrozen">${esc(x.g)}</th><th colspan="${x.n-3}"></th>`;
+    } else h+=`<th colspan="${x.n}"><span class="glabel">${esc(x.g)}</span></th>`;
   });
   h+='</tr><tr class="h">';
   COLS.forEach(([l],i)=>{ h+=`<th class="${i<3?'sticky c'+i:''}"><div class="hcell"><span>${esc(l)}</span><button type="button" class="fbtn${colFilters[i]?' on':''}" data-c="${i}" aria-label="Filter: ${esc(l)}" aria-haspopup="true" title="Filter">${colFilters[i]?'&#9660;':'&#9662;'}</button></div></th>` });
