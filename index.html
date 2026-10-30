@@ -498,8 +498,8 @@ function showGenState(note){
   $('#genPanel').classList.toggle('hidden',GENERATED);
   $('#sheetArea').classList.toggle('hidden',!GENERATED);
   $('#btnPrint').disabled=!GENERATED;
-  $('#btnXlsx').disabled=!(GENERATED&&ADJUSTED);
-  $('#btnXlsx').title=ADJUSTED?'Final salary sheet .xlsx download':'Age Adjustment File upload kore Adjust from Salary press koro';
+  $('#btnXlsx').disabled=!GENERATED;
+  $('#btnXlsx').title=ADJUSTED?'Final salary sheet .xlsx download':'Adjustment chara download korle alert dekhabe';
   $('#adjChip').textContent=ADJUSTED?`Adjustment applied: ${INPUTS?INPUTS.name:''}`:'Adjustment apply kora hoy nai (Adjust from Salary press koro)';
   $('#adjChip').classList.toggle('ok',ADJUSTED);
   if(!GENERATED){
@@ -767,7 +767,9 @@ function renderMapping(){
 /* ================= Excel export ================= */
 async function exportXlsx(){
   if(!window.ExcelJS){ alert('Excel library load hoy nai (internet check korun).'); return }
-  if(!ADJUSTED){ alert('Age Adjust from Salary press koro.'); return }
+  if(!ADJUSTED){                                           // allowed, but warn clearly
+    if(!confirm('ALERT ! Salary te kono adjustment kora hoy ni .Want to Download ?')) return;
+  }
   const rows=resignedLast(ALL); if(!rows.length){ alert('Export korar moto row nei.'); return }   // final sheet = all employees, no filter
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet(META.sheetName||"Salary",{views:[{state:'frozen',xSplit:3,ySplit:4}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:8}});
