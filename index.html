@@ -7,6 +7,7 @@
 <title>HQ Salary Sheet</title>
 <style>
 :root{
+  --res-bg:#fde8e8; --res-ink:#9b1c1c; --res-hover:#fbd5d5;
   --bg:#f6f7f5; --card:#fff; --ink:#1d2420; --muted:#667068; --line:#dfe4de;
   --accent:#2f6b3f; --accent-ink:#fff; --head:#eff6ea; --group:#dfeadb;
   --warn:#b4570a; --warn-bg:#fdf1e4; --bad:#b3261e; --bad-bg:#fdeceb; --ok-bg:#e6f3e8; --hover:#f3f8f1;
@@ -15,6 +16,7 @@
   :root:not([data-theme="light"]){
     --bg:#121613; --card:#1a201b; --ink:#e8ede9; --muted:#97a39a; --line:#2c352e;
     --accent:#6fbf86; --accent-ink:#0e1a12; --head:#223025; --group:#2a3b2d;
+    --res-bg:#3b1f1f; --res-ink:#f2a3a3; --res-hover:#4a2727;
     --warn:#f0a35e; --warn-bg:#33261a; --bad:#f2928c; --bad-bg:#3a1f1d; --ok-bg:#1f3325; --hover:#202a22;
   }
 }
@@ -100,6 +102,9 @@ thead th{position:sticky;background:var(--head);z-index:3;text-align:center;font
 thead tr.g th{top:0;background:var(--group)}
 thead tr.h th{top:var(--g-h,30px);white-space:normal;min-width:84px;vertical-align:middle}
 tbody tr:hover td{background:var(--hover)}
+tbody tr.res td{background:var(--res-bg);color:var(--res-ink)}
+tbody tr.res:hover td{background:var(--res-hover)}
+tbody tr.res .badge{background:var(--res-ink);color:var(--res-bg)}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
 td.ctr{text-align:center}
 td.wrapcell{white-space:normal;min-width:260px}
@@ -125,6 +130,7 @@ details.map{margin-top:10px}
 .sign div{min-width:160px;border-top:1px solid var(--muted);padding-top:4px}
 
 @media print{
+  tbody tr.res td{background:#fde8e8!important;color:#9b1c1c!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   #btnRefresh{display:none!important}
   .inputs,#inbanner{display:none!important}
   @page{size:A3 landscape;margin:8mm}
@@ -533,6 +539,8 @@ $('#btnRefresh').onclick=load;
 $('#btnPrint').onclick=()=>window.print();
 
 /* ================= render ================= */
+const isResigned=r=>/^resigned$/i.test(String(r[4]==null?'':r[4]).trim());
+const resignedLast=rows=>[...rows.filter(r=>!isResigned(r)),...rows.filter(isResigned)];   // stable: original order kept inside each group
 const colFilters={};                               // {columnIndex: Set(of cell texts that are allowed)}
 function cellText(r,i){
   const t=COLS[i][1], v=r[i];
@@ -543,11 +551,11 @@ function cellText(r,i){
 }
 function visible(skipCol){
   const q=view.q.trim().toLowerCase(), act=Object.entries(colFilters).filter(([i])=>+i!==skipCol);
-  return ALL.filter(r=>
+  return resignedLast(ALL.filter(r=>
     (view.f==='all'||r[4]===view.f) &&
     (!view.dept||r[7]===view.dept) &&
     (!q||[r[1],r[2],r[6],r[7]].join(' ').toLowerCase().includes(q)) &&
-    act.every(([i,set])=>set.has(cellText(r,+i))));
+    act.every(([i,set])=>set.has(cellText(r,+i)))));
 }
 function filterCount(){ return Object.keys(colFilters).length }
 function syncFilterUi(){
@@ -589,7 +597,7 @@ function render(){
   let b='<tbody>';
   if(!rows.length) b+=`<tr><td colspan="${NCOL}" class="empty">Kono row nei.</td></tr>`;
   rows.forEach(r=>{
-    b+='<tr>';
+    b+=isResigned(r)?'<tr class="res">':'<tr>';
     COLS.forEach(([,t],i)=>{
       const v=r[i]; let cls=[], txt='';
       if(i<3) cls.push('sticky','c'+i);
@@ -744,7 +752,7 @@ function renderMapping(){
 async function exportXlsx(){
   if(!window.ExcelJS){ alert('Excel library load hoy nai (internet check korun).'); return }
   if(!ADJUSTED){ alert('Age Adjust from Salary press koro.'); return }
-  const rows=ALL.slice(); if(!rows.length){ alert('Export korar moto row nei.'); return }   // final sheet = all employees, no filter
+  const rows=resignedLast(ALL); if(!rows.length){ alert('Export korar moto row nei.'); return }   // final sheet = all employees, no filter
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet(META.sheetName||"Salary",{views:[{state:'frozen',xSplit:3,ySplit:4}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:8}});
   const L=colLetter, thin={style:'thin',color:{argb:'FFBFC7BC'}};
@@ -790,6 +798,7 @@ async function exportXlsx(){
       if(t==='int'||t==='date'||t==='status') c.alignment={horizontal:'center'};
       if(i===9||i===12) c.numFmt='@';
       c.border=border;
+      if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} }
     });
   });
 
