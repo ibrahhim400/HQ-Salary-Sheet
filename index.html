@@ -181,7 +181,7 @@ details.map{margin-top:10px}
       <label class="monthpick">Salary month <input type="month" id="salMonth" aria-label="Salary month"></label>
       <button class="btn primary" id="btnRefresh" type="button" title="Google Sheet theke latest data ane"><svg class="syncico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2M3 12a9 9 0 0 1 15.5-6.2"/><path d="M18.5 2v4h-4M5.5 22v-4h4"/></svg><span id="syncLbl">Sync Data</span></button>
       <button class="btn" id="btnPrint" type="button" disabled>Print</button>
-      <button class="btn primary" id="btnXlsx" type="button" disabled title="Age Upload input sheet > Adjust from Salary press koro">Download Final Salary Sheet</button>
+      <button class="btn primary" id="btnXlsx" type="button" disabled title="Age Adjustment File upload kore Adjust from Salary press koro">Download Final Salary Sheet</button>
       <button class="btn" id="btnLogout" type="button">Logout</button>
     </div>
   </header>
@@ -190,14 +190,14 @@ details.map{margin-top:10px}
   <section class="inputs" id="inputsPanel" aria-label="Salary inputs">
     <div>
       <b>Salary inputs upload</b>
-      <div class="hint">Step 1: input sheet upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, TDS, Loan/Advance, Other Adjustment, <b>Staff Code</b> diye mele). Step 2: <b>Adjust from Salary</b> press koro, shob adjustment salary theke deduct/add hoye sheet e dekhabe. Step 3: <b>Download Final Salary Sheet</b>.</div>
+      <div class="hint">Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, TDS, Loan/Advance, Other Adjustment, <b>Staff Code</b> diye mele). Step 2: <b>Adjust from Salary</b> press koro, shob adjustment salary theke deduct/add hoye sheet e dekhabe. Step 3: <b>Download Final Salary Sheet</b>.</div>
     </div>
     <div class="inputs-actions">
       <button class="btn" id="btnTemplate" type="button">Download template</button>
-      <label class="btn primary" for="fileIn" role="button" tabindex="0" id="lblUpload">Upload input sheet</label>
+      <label class="btn primary" for="fileIn" role="button" tabindex="0" id="lblUpload">Adjustment File</label>
       <input type="file" id="fileIn" accept=".xlsx,.csv" class="hidden">
       <button class="btn hidden" id="btnClearIn" type="button">Clear</button>
-      <button class="btn primary" id="btnAdjust" type="button" disabled title="Age input sheet upload koro">Adjust from Salary</button>
+      <button class="btn primary" id="btnAdjust" type="button" disabled title="Age Adjustment File upload koro">Adjust from Salary</button>
     </div>
     <div class="inputs-status" id="inStatus"></div>
   </section>
@@ -499,7 +499,7 @@ function showGenState(note){
   $('#sheetArea').classList.toggle('hidden',!GENERATED);
   $('#btnPrint').disabled=!GENERATED;
   $('#btnXlsx').disabled=!(GENERATED&&ADJUSTED);
-  $('#btnXlsx').title=ADJUSTED?'Final salary sheet .xlsx download':'Age Upload input sheet > Adjust from Salary press koro';
+  $('#btnXlsx').title=ADJUSTED?'Final salary sheet .xlsx download':'Age Adjustment File upload kore Adjust from Salary press koro';
   $('#adjChip').textContent=ADJUSTED?`Adjustment applied: ${INPUTS?INPUTS.name:''}`:'Adjustment apply kora hoy nai (Adjust from Salary press koro)';
   $('#adjChip').classList.toggle('ok',ADJUSTED);
   if(!GENERATED){
@@ -929,7 +929,7 @@ function parseInputRows(rows){
 function showInputInfo(){
   const st=$('#inStatus'), bn=$('#inbanner'); bn.innerHTML='';
   $('#btnAdjust').disabled=!(INPUTS&&ALL.length);
-  if(!INPUTS){ st.textContent='Input sheet upload kora hoy nai. Kono adjustment (absent, bonus, TDS ityadi) apply hoy nai.'; st.className='inputs-status'; $('#btnClearIn').classList.add('hidden'); return }
+  if(!INPUTS){ st.textContent='Adjustment File upload kora hoy nai. Kono adjustment (absent, bonus, TDS ityadi) apply hoy nai.'; st.className='inputs-status'; $('#btnClearIn').classList.add('hidden'); return }
   $('#btnClearIn').classList.remove('hidden');
   const has=r=>INPUTS.map.has(String(r[1]).trim().toLowerCase());
   const matched=ALL.filter(has).length, missing=ALL.filter(r=>!has(r));
@@ -947,7 +947,7 @@ function showInputInfo(){
 function applyInputs(){
   const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm));
   showInputInfo();
-  hideSalary('Input sheet bodlayeche.');
+  hideSalary('Adjustment File bodlayeche.');
 }
 async function handleUpload(file){
   try{
