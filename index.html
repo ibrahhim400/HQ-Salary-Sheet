@@ -7,6 +7,7 @@
 <title>HQ Salary Sheet</title>
 <style>
 :root{
+  --g-add:#bfe8c6; --h-add:#e3f5e6; --g-ded:#f6c4bd; --h-ded:#fce6e3; --g-pay:#bcd9f5; --h-pay:#e2eefa; --g-stat:#fbd88f; --h-stat:#fdefcf; --g-net:#8fd3a0; --h-net:#cdeed6;
   --res-bg:#fde8e8; --res-ink:#9b1c1c; --res-hover:#fbd5d5;
   --bg:#f6f7f5; --card:#fff; --ink:#1d2420; --muted:#667068; --line:#dfe4de;
   --accent:#2f6b3f; --accent-ink:#fff; --head:#eff6ea; --group:#dfeadb;
@@ -16,6 +17,7 @@
   :root:not([data-theme="light"]){
     --bg:#121613; --card:#1a201b; --ink:#e8ede9; --muted:#97a39a; --line:#2c352e;
     --accent:#6fbf86; --accent-ink:#0e1a12; --head:#223025; --group:#2a3b2d;
+    --g-add:#2c4d34; --h-add:#233b29; --g-ded:#5a2c28; --h-ded:#40221f; --g-pay:#274a6d; --h-pay:#1f3850; --g-stat:#5d4a1a; --h-stat:#43360f; --g-net:#2f6a43; --h-net:#25503a;
     --res-bg:#3b1f1f; --res-ink:#f2a3a3; --res-hover:#4a2727;
     --warn:#f0a35e; --warn-bg:#33261a; --bad:#f2928c; --bad-bg:#3a1f1d; --ok-bg:#1f3325; --hover:#202a22;
   }
@@ -53,6 +55,17 @@ label.btn{display:inline-block}
 .genpanel{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:18px 16px;margin-bottom:12px}
 .genpanel .hint{color:var(--muted);font-size:13px;margin-top:2px}
 .genpanel .btn{padding:10px 22px;font-size:15px}
+thead tr.g th.g-add{background:var(--g-add)}
+thead tr.h th.h-add{background:var(--h-add)}
+thead tr.g th.g-ded{background:var(--g-ded)}
+thead tr.h th.h-ded{background:var(--h-ded)}
+thead tr.g th.g-pay{background:var(--g-pay)}
+thead tr.h th.h-pay{background:var(--h-pay)}
+thead tr.g th.g-stat{background:var(--g-stat)}
+thead tr.h th.h-stat{background:var(--h-stat)}
+thead tr.g th.g-net{background:var(--g-net)}
+thead tr.h th.h-net{background:var(--h-net)}
+thead tr.g th.g-net,thead tr.g th.g-pay{font-weight:700}
 .gfrozen{position:sticky;left:0;z-index:5;min-width:346px}
 .glabel{position:sticky;left:370px;display:inline-block;padding:0 8px}
 .hcell{display:flex;align-items:center;justify-content:center;gap:6px}
@@ -540,6 +553,7 @@ $('#btnRefresh').onclick=load;
 $('#btnPrint').onclick=()=>window.print();
 
 /* ================= render ================= */
+const GKEY={25:'add',26:'add',27:'add',28:'ded',29:'ded',30:'pay',31:'stat',32:'stat',33:'stat',34:'net'};   // coloured heading groups
 const isResigned=r=>/^resigned$/i.test(String(r[4]==null?'':r[4]).trim());
 const resignedLast=rows=>[...rows.filter(r=>!isResigned(r)),...rows.filter(isResigned)];   // stable: original order kept inside each group
 const colFilters={};                               // {columnIndex: Set(of cell texts that are allowed)}
@@ -589,10 +603,10 @@ function render(){
   groups.forEach(x=>{
     if(x.i===0 && x.n>3){   // frozen columns (SL, Staff Code, Name) keep their own 'Employee' heading
       h+=`<th colspan="3" class="gfrozen">${esc(x.g)}</th><th colspan="${x.n-3}"></th>`;
-    } else h+=`<th colspan="${x.n}"><span class="glabel">${esc(x.g)}</span></th>`;
+    } else h+=`<th colspan="${x.n}" class="${GKEY[x.i]?'g-'+GKEY[x.i]:''}"><span class="glabel">${esc(x.g)}</span></th>`;
   });
   h+='</tr><tr class="h">';
-  COLS.forEach(([l],i)=>{ h+=`<th class="${i<3?'sticky c'+i:''}"><div class="hcell"><span>${esc(l)}</span><button type="button" class="fbtn${colFilters[i]?' on':''}" data-c="${i}" aria-label="Filter: ${esc(l)}" aria-haspopup="true" title="Filter">${colFilters[i]?'&#9660;':'&#9662;'}</button></div></th>` });
+  COLS.forEach(([l],i)=>{ h+=`<th class="${(i<3?'sticky c'+i:'')+(GKEY[i]?' h-'+GKEY[i]:'')}"><div class="hcell"><span>${esc(l)}</span><button type="button" class="fbtn${colFilters[i]?' on':''}" data-c="${i}" aria-label="Filter: ${esc(l)}" aria-haspopup="true" title="Filter">${colFilters[i]?'&#9660;':'&#9662;'}</button></div></th>` });
   h+='</tr></thead>';
 
   /* body */
@@ -777,7 +791,8 @@ async function exportXlsx(){
   [30,34,35].forEach(i=>{ ws.getCell(3,i+1).value=COLS[i][0]==='Remarks'?'Remarks':COLS[i][0] });
   for(let r=3;r<=4;r++) for(let c=1;c<=NCOL;c++){
     const cell=ws.getCell(r,c);
-    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:r===3?GRP:HEAD}};
+    const XC={add:['FFBFE8C6','FFE3F5E6'],ded:['FFF6C4BD','FFFCE6E3'],pay:['FFBCD9F5','FFE2EEFA'],stat:['FFFBD88F','FFFDEFCF'],net:['FF8FD3A0','FFCDEED6']}[GKEY[c-1]];
+    cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:XC?XC[r===3?0:1]:(r===3?GRP:HEAD)}};
     cell.font={bold:true}; cell.border=border; cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
   }
   ws.getRow(4).height=48;
