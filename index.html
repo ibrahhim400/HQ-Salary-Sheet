@@ -684,7 +684,7 @@ function render(){
       else if(t==='status'){ cls.push('ctr'); txt=v?`<span class="badge ${v==='Resigned'?'res':''}">${esc(v)}</span>`:'' }
       else if(t==='remark'){ cls.push('wrapcell'); txt=esc(v); if(/hold/i.test(v||'')) cls.push('remark-hold') }
       else txt=esc(v);
-      b+=`<td class="${cls.join(' ')}">${txt}</td>`;
+      b+=`<td class="${cls.join(' ')}" data-c="${i}">${txt}</td>`;
     });
     b+='</tr>';
   });
@@ -698,7 +698,7 @@ function render(){
   const gh=document.querySelector('#tbl thead tr.g'); if(gh) $('#tbl').style.setProperty('--g-h',gh.offsetHeight+'px');
 }
 function refreshRow(tr,r){
-  tr.querySelectorAll('td[data-c]').forEach(td=>{ const c=+td.dataset.c; if(!EDIT_COLS.includes(c)) td.textContent=COLS[c][1]==='money'?fmtMoney(num(r[c])):String(r[c]??'') });
+  tr.querySelectorAll('td[data-c]').forEach(td=>{ const c=+td.dataset.c; if(!EDIT_COLS.includes(c)) if(COLS[c][1]==='money') td.textContent=fmtMoney(num(r[c])); else if(COLS[c][1]==='int') td.textContent=r[c]==null?'':String(r[c]) });
 }
 $('#tbl').addEventListener('change',e=>{
   const inp=e.target.closest('input.cellin'); if(!inp) return;
