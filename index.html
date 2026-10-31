@@ -121,6 +121,11 @@ tbody tr.res td{background:var(--res-bg);color:var(--res-ink)}
 tbody tr.res:hover td{background:var(--res-hover)}
 tbody tr.res .badge{background:var(--res-ink);color:var(--res-bg)}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
+td.edit{padding:2px 3px}
+input.cellin{width:92px;box-sizing:border-box;text-align:right;font:inherit;font-variant-numeric:tabular-nums;padding:4px 6px;border:1px solid var(--line);border-radius:5px;background:#fff;color:#111}
+input.cellin.set{background:#fff8d6;border-color:#d9b94a;font-weight:650}
+input.cellin:focus{outline:2px solid #2f7d4f;outline-offset:0}
+input.cellin.bad{border-color:#c0392b;background:#fde8e6}
 td.ctr{text-align:center}
 td.wrapcell{white-space:normal;min-width:260px}
 .sticky{position:sticky;z-index:2}
@@ -226,6 +231,7 @@ details.map{margin-top:10px}
     <input type="search" id="q" placeholder="Search name, code, designation..." aria-label="Search">
     <span class="chip" id="adjChip"></span>
     <span class="chip" id="tdsChip"></span>
+    <button class="btn hidden" id="btnClearManual" type="button">Clear manual entries</button>
     <button class="btn hidden" id="btnClearFilters" type="button">Clear column filters</button>
     <button class="btn" id="btnHide" type="button">Hide salary sheet</button>
   </div>
@@ -427,7 +433,15 @@ function calcTds(gross,special,bonus,carAit){
 }
 const INPUT_COLS=[22,25,26,27,29,31,32,33];   // the 8 hand-input columns (TDS is automatic; a value in the file overrides it)
 let INPUTS=null;                               // uploaded input sheet (kept in memory only)
-let ADJUSTED=false;                            // true only after 'Adjust from Salary' was pressed
+let ADJUSTED=false;
+/* Manual typing in the sheet: Absent Days, Arrear, Bonus, Others, Loan/Advance, Other Adjustment (kept per salary month in this tab only) */
+const EDIT_COLS=[22,25,26,27,32,33];
+let MANUAL={};
+function manKey(){ const sm=salaryMonth(); return 'wegro_manual_'+(sm?sm.y+'-'+sm.m:'x') }
+function loadManual(){ try{ MANUAL=JSON.parse(sessionStorage.getItem(manKey())||'{}')||{} }catch(e){ MANUAL={} } }
+function saveManual(){ try{ sessionStorage.setItem(manKey(),JSON.stringify(MANUAL)) }catch(e){} }
+function manualCount(){ return Object.keys(MANUAL).filter(k=>Object.keys(MANUAL[k]||{}).length).length }
+function hasAdj(){ return ADJUSTED||manualCount()>0 }                            // true only after 'Adjust from Salary' was pressed
 function recalc(a,sm){
   /* Same formulas as the sheet; Applicable Days comes from Joining / Last Working Day. */
   if(!a._sheet) a._sheet=a.slice();                       // raw values exactly as in Google Sheet
@@ -441,6 +455,7 @@ function recalc(a,sm){
     INPUT_COLS.forEach(c=>{ if(c===31){ if(u&&u.tdsSet){ a[31]=u[31]; a._tds='file' } } else a[c]=u?u[c]:0 });
     a._in=u?'ok':'missing';
   }
+  { const m=MANUAL[String(a[1]).trim().toLowerCase()]; if(m) EDIT_COLS.forEach(c=>{ if(m[c]!==undefined) a[c]=m[c] }) }   // typed in the sheet wins
   if(sm) a[19]=sm.days;                                   // Month Days = days of the selected salary month (auto)
   const S=num(a[18]), T=num(a[19])||1, W=num(a[22]);
   a[14]=S*0.6; a[15]=a[14]/2; a[16]=S*0.05; a[17]=S*0.05;
@@ -521,9 +536,10 @@ function showGenState(note){
   $('#sheetArea').classList.toggle('hidden',!GENERATED);
   $('#btnPrint').disabled=!GENERATED;
   $('#btnXlsx').disabled=!GENERATED;
-  $('#btnXlsx').title=ADJUSTED?'Final salary sheet .xlsx download':'Adjustment chara download korle alert dekhabe';
+  $('#btnXlsx').title=hasAdj()?'Final salary sheet .xlsx download':'Adjustment chara download korle alert dekhabe';
   $('#adjChip').textContent=ADJUSTED?`Adjustment applied: ${INPUTS?INPUTS.name:''}`:'Adjustment apply kora hoy nai (Adjust from Salary press koro)';
   $('#adjChip').classList.toggle('ok',ADJUSTED);
+  $('#btnClearManual').classList.toggle('hidden',!(GENERATED&&manualCount()));
   { const sm=salaryMonth(), on=tdsApplies(sm), n=ALL.filter(r=>r._tds==='file').length;
     $('#tdsChip').textContent = on ? (n?`TDS: auto (FY 2026-27/28 rule) · ${n} jon file theke`:'TDS: auto (FY 2026-27/28 rule)') : 'TDS auto hoy nai (rule shudhu Jul 2026 - Jun 2028)';
     $('#tdsChip').classList.toggle('ok',on); }
@@ -535,6 +551,7 @@ function showGenState(note){
 }
 function generateSalary(){
   if(!ALL.length) return;
+  loadManual();
   Object.keys(colFilters).forEach(k=>delete colFilters[k]);
   const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm));     // fresh calculation
   fillDepts(); render(); runChecks();
@@ -609,9 +626,7 @@ function fillDepts(){
   sel.value=ds.includes(cur)?cur:'';
 }
 function sumCol(rows,c){ return rows.reduce((s,r)=>s+num(r[c]),0) }
-function render(){
-  const rows=visible();
-  /* cards (always for the filtered set) */
+function renderCards(rows){
   const act=rows.filter(r=>r[4]==='Active').length, res=rows.filter(r=>r[4]==='Resigned').length;
   const adj=sumCol(rows,31)+sumCol(rows,32)+sumCol(rows,33);
   $('#cards').innerHTML=[
@@ -621,6 +636,22 @@ function render(){
     ['TDS / Loan / Adjustments','৳ '+fmtMoney(adj),'Statutory & other'],
     ['Net Payable','৳ '+fmtMoney(sumCol(rows,34)),'To be disbursed']
   ].map(([k,v,s])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+}
+function footHtml(rows){
+  let f='<tr>', skip=0;
+  for(let i=0;i<NCOL;i++){
+    if(skip){skip--;continue}
+    if(i===0){ f+=`<td colspan="3" class="sticky c0" style="min-width:346px;max-width:346px">Total (${rows.length})</td>`; skip=2; continue }
+    f+= TOTAL_COLS.includes(i) ? `<td class="num">${fmtMoney(sumCol(rows,i))}</td>` : '<td></td>';
+  }
+  return f+'</tr>';
+}
+function render(){
+  const rows=visible();
+  /* cards (always for the filtered set) */
+  const act=rows.filter(r=>r[4]==='Active').length, res=rows.filter(r=>r[4]==='Resigned').length;
+  const adj=sumCol(rows,31)+sumCol(rows,32)+sumCol(rows,33);
+  renderCards(rows);
 
   /* head */
   const groups=[]; COLS.forEach(([,,g],i)=>{ const l=groups[groups.length-1]; l&&l.g===g ? l.n++ : groups.push({g,n:1,i}) });
@@ -642,6 +673,11 @@ function render(){
     COLS.forEach(([,t],i)=>{
       const v=r[i]; let cls=[], txt='';
       if(i<3) cls.push('sticky','c'+i);
+      if(EDIT_COLS.includes(i)){
+        const mm=MANUAL[String(r[1]).trim().toLowerCase()], set=mm&&mm[i]!==undefined;
+        b+=`<td class="num edit" data-c="${i}"><input class="cellin${set?' set':''}" inputmode="decimal" autocomplete="off" data-code="${esc(r[1])}" data-c="${i}" value="${num(v)?esc(String(num(v))):''}" placeholder="0" aria-label="${esc(COLS[i][0])} - ${esc(r[1])}"></td>`;
+        return;
+      }
       if(t==='money'){ cls.push('num'); txt=fmtMoney(num(v)) }
       else if(t==='int'){ cls.push('ctr'); txt=v==null?'':esc(v) }
       else if(t==='date'){ cls.push('ctr'); txt=fmtDate(v) }
@@ -655,19 +691,36 @@ function render(){
   b+='</tbody>';
 
   /* foot */
-  let f='<tfoot><tr>';
-  let skip=0;
-  for(let i=0;i<NCOL;i++){
-    if(skip){skip--;continue}
-    if(i===0){ f+=`<td colspan="3" class="sticky c0" style="min-width:346px;max-width:346px">Total (${rows.length})</td>`; skip=2; continue }
-    f+= TOTAL_COLS.includes(i) ? `<td class="num">${fmtMoney(sumCol(rows,i))}</td>` : '<td></td>';
-  }
-  f+='</tr></tfoot>';
+  const f='<tfoot>'+footHtml(rows)+'</tfoot>';
 
   $('#tbl').innerHTML=h+b+f;
   syncFilterUi();
   const gh=document.querySelector('#tbl thead tr.g'); if(gh) $('#tbl').style.setProperty('--g-h',gh.offsetHeight+'px');
 }
+function refreshRow(tr,r){
+  tr.querySelectorAll('td[data-c]').forEach(td=>{ const c=+td.dataset.c; if(!EDIT_COLS.includes(c)) td.textContent=COLS[c][1]==='money'?fmtMoney(num(r[c])):String(r[c]??'') });
+}
+$('#tbl').addEventListener('change',e=>{
+  const inp=e.target.closest('input.cellin'); if(!inp) return;
+  const code=inp.dataset.code, c=+inp.dataset.c, key=String(code).trim().toLowerCase();
+  const raw=inp.value.trim().replace(/,/g,''); const row=ALL.find(r=>r[1]===code); if(!row) return;
+  if(raw!==''&&!/^-?\d*\.?\d+$/.test(raw)){ inp.classList.add('bad'); inp.title='Shudhu number likho'; return }
+  inp.classList.remove('bad'); inp.title='';
+  MANUAL[key]=MANUAL[key]||{};
+  if(raw===''){ delete MANUAL[key][c]; if(!Object.keys(MANUAL[key]).length) delete MANUAL[key]; inp.classList.remove('set') }
+  else { MANUAL[key][c]=parseFloat(raw); inp.classList.add('set'); inp.value=String(parseFloat(raw)) }
+  saveManual();
+  recalc(row,salaryMonth());
+  if(raw===''&&!inp.value) inp.value=row[c]?String(num(row[c])):'';
+  const tr=inp.closest('tr'); refreshRow(tr,row);
+  const rows=visible(); renderCards(rows); const tf=document.querySelector('#tbl tfoot'); if(tf) tf.innerHTML=footHtml(rows);
+  showGenState(); runChecks();
+});
+$('#tbl').addEventListener('keydown',e=>{
+  if(e.key!=='Enter'||!e.target.matches('input.cellin')) return;
+  e.preventDefault(); const ins=[...document.querySelectorAll('#tbl input.cellin[data-c="'+e.target.dataset.c+'"]')]; const n=ins[ins.indexOf(e.target)+1]; (n||e.target).focus(); (n||e.target).select();
+});
+$('#btnClearManual').onclick=()=>{ if(!confirm('Sheet-e hate lekha sob entry muche felbo?')) return; MANUAL={}; saveManual(); generateSalary() };
 $('#tabs').addEventListener('click',e=>{
   const b=e.target.closest('button'); if(!b) return;
   view.f=b.dataset.f; document.querySelectorAll('#tabs button').forEach(x=>x.setAttribute('aria-pressed',x===b));
@@ -793,7 +846,7 @@ function renderMapping(){
 /* ================= Excel export ================= */
 async function exportXlsx(){
   if(!window.ExcelJS){ alert('Excel library load hoy nai (internet check korun).'); return }
-  if(!ADJUSTED){                                           // allowed, but warn clearly
+  if(!hasAdj()){                                           // allowed, but warn clearly
     if(!confirm('ALERT ! Salary te kono adjustment kora hoy ni .Want to Download ?')) return;
   }
   const rows=resignedLast(ALL); if(!rows.length){ alert('Export korar moto row nei.'); return }   // final sheet = all employees, no filter
