@@ -190,7 +190,7 @@ details.map{margin-top:10px}
   <section class="inputs" id="inputsPanel" aria-label="Salary inputs">
     <div>
       <b>Salary inputs upload</b>
-      <div class="hint">Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, TDS, Loan/Advance, Other Adjustment, <b>Staff Code</b> diye mele). Step 2: <b>Adjust from Salary</b> press koro, shob adjustment salary theke deduct/add hoye sheet e dekhabe. Step 3: <b>Download Final Salary Sheet</b>.</div>
+      <div class="hint">Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, Loan/Advance, Other Adjustment, <b>Staff Code</b> diye mele). <b>Income Tax (TDS)</b> auto hisab hoy; file e TDS dile shudhu oi employee er auto TDS bodle jay. Step 2: <b>Adjust from Salary</b> press koro, shob adjustment salary theke deduct/add hoye sheet e dekhabe. Step 3: <b>Download Final Salary Sheet</b>.</div>
     </div>
     <div class="inputs-actions">
       <button class="btn" id="btnTemplate" type="button">Download template</button>
@@ -225,6 +225,7 @@ details.map{margin-top:10px}
     <select id="dept" aria-label="Department"><option value="">All departments</option></select>
     <input type="search" id="q" placeholder="Search name, code, designation..." aria-label="Search">
     <span class="chip" id="adjChip"></span>
+    <span class="chip" id="tdsChip"></span>
     <button class="btn hidden" id="btnClearFilters" type="button">Clear column filters</button>
     <button class="btn" id="btnHide" type="button">Hide salary sheet</button>
   </div>
@@ -405,7 +406,26 @@ const SOURCE_COLS=[1,2,3,4,5,6,7,8,9,10,12,13,18,19];       // columns pulled fr
 const OVR_KEY='salaryMapOverrides:'+CONFIG.SHEET_ID+':'+CONFIG.GID;
 function loadOverrides(){ try{ return JSON.parse(localStorage.getItem(OVR_KEY)||'{}') }catch(e){ return {} } }
 function saveOverrides(o){ try{ localStorage.setItem(OVR_KEY,JSON.stringify(o)) }catch(e){} }
-const INPUT_COLS=[22,25,26,27,29,31,32,33];   // the 8 hand-input columns
+/* ================= Income Tax (TDS) - same rules as "TDS SALARY Calculation Male" (FY 2026-27 & 2027-28) =================
+   Yearly gross = (Gross + special allowance) x 12 (+ bonus);  exemption = min(1/3 of that, 500,000);  taxable = yearly - exemption.
+   Slabs: 0% up to 400,000 | 10% next 300,000 (minimum tax 5,000) | 15% next 400,000 | 20% next 500,000 | 25% next 2,000,000 | 30% above 3,600,000.
+   Investment rebate = 3% of taxable income when tax > 5,000.  Annual tax = tax - rebate, but at least 5,000 when any tax is due.
+   Monthly TDS = (annual tax - CAR AIT) / 12.   Valid for salary months Jul 2026 - Jun 2028. */
+const TDS_FROM='2026-07', TDS_TO='2028-06';
+function tdsApplies(sm){ if(!sm) return false; const ym=sm.y+'-'+String(sm.m+1).padStart(2,'0'); return ym>=TDS_FROM&&ym<=TDS_TO }
+function calcTds(gross,special,bonus,carAit){
+  special=special||0; bonus=bonus||0; carAit=carAit||0;
+  const yearly=(gross+special)*12+bonus;
+  const X=yearly-Math.min(yearly/3,500000);                         // taxable income
+  const t10=Math.max(Math.min(X-400000,300000),0)*0.10;
+  const slab10=t10>0?Math.max(t10,5000):0;
+  const tax=slab10+Math.max(Math.min(X-700000,400000),0)*0.15+Math.max(Math.min(X-1100000,500000),0)*0.20
+           +Math.max(Math.min(X-1600000,2000000),0)*0.25+Math.max(X-3600000,0)*0.30;
+  const rebate=tax>5000?X*0.03:0;
+  const annual=tax<=0?0:((tax-rebate)>=5000?(tax-rebate):5000);
+  return Math.max(annual-carAit,0)/12;
+}
+const INPUT_COLS=[22,25,26,27,29,31,32,33];   // the 8 hand-input columns (TDS is automatic; a value in the file overrides it)
 let INPUTS=null;                               // uploaded input sheet (kept in memory only)
 let ADJUSTED=false;                            // true only after 'Adjust from Salary' was pressed
 function recalc(a,sm){
@@ -414,9 +434,11 @@ function recalc(a,sm){
   for(let c=0;c<NCOL;c++) a[c]=a._sheet[c];               // always start from the raw sheet values
   a._in=null;
   INPUT_COLS.forEach(c=>{ a[c]=0 });                      // before adjustment: salary has no adjustments
+  a._tds=null; a._tdsAuto=null;
+  if(tdsApplies(sm)){ a._tdsAuto=calcTds(num(a[18])); a[31]=a._tdsAuto; a._tds='auto' }   // Income Tax (TDS) is automatic
   if(INPUTS && ADJUSTED){                                 // 'Adjust from Salary' applies the uploaded sheet
     const u=INPUTS.map.get(String(a[1]).trim().toLowerCase());
-    INPUT_COLS.forEach(c=>{ a[c]=u?u[c]:0 });
+    INPUT_COLS.forEach(c=>{ if(c===31){ if(u&&u.tdsSet){ a[31]=u[31]; a._tds='file' } } else a[c]=u?u[c]:0 });
     a._in=u?'ok':'missing';
   }
   if(sm) a[19]=sm.days;                                   // Month Days = days of the selected salary month (auto)
@@ -502,6 +524,9 @@ function showGenState(note){
   $('#btnXlsx').title=ADJUSTED?'Final salary sheet .xlsx download':'Adjustment chara download korle alert dekhabe';
   $('#adjChip').textContent=ADJUSTED?`Adjustment applied: ${INPUTS?INPUTS.name:''}`:'Adjustment apply kora hoy nai (Adjust from Salary press koro)';
   $('#adjChip').classList.toggle('ok',ADJUSTED);
+  { const sm=salaryMonth(), on=tdsApplies(sm), n=ALL.filter(r=>r._tds==='file').length;
+    $('#tdsChip').textContent = on ? (n?`TDS: auto (FY 2026-27/28 rule) · ${n} jon file theke`:'TDS: auto (FY 2026-27/28 rule)') : 'TDS auto hoy nai (rule shudhu Jul 2026 - Jun 2028)';
+    $('#tdsChip').classList.toggle('ok',on); }
   if(!GENERATED){
     const sm=salaryMonth();
     $('#genInfo').textContent = !ok ? 'Prothome Sync Data press koro.'
@@ -742,6 +767,7 @@ function runChecks(){
     const o=r._sheet||[];
     if(r[4]==='Resigned' && !r[5]) L.push(`${r[1]} ${r[2]}: Resigned kintu Last Working Day nei`);
   });
+  ALL.filter(r=>r._tds==='file').forEach(r=>L.push(`${r[1]} ${r[2]}: TDS Adjustment File theke ${fmtMoney(r[31])} (auto hisab ${fmtMoney(r._tdsAuto)})`));
   if(META.noAccount.length) L.push(`Account number nei (${META.noAccount.length} jon): ${META.noAccount.map(a=>a[1]+' '+a[2]).join('; ')}`);
   const sm=salaryMonth();
   if(sm) ALL.forEach(r=>{
@@ -909,7 +935,7 @@ function parseInputRows(rows){
   const find=rx=>{ const i=labels.findIndex((l,k)=>!used.has(k)&&l&&rx.test(l)); if(i>=0) used.add(i); return i };
   const codeCol=find(HEADER_RX[1]);
   const cm={}; INPUT_COLS.forEach(c=>{ cm[c]=find(HEADER_RX[c]) });
-  const missingCols=INPUT_COLS.filter(c=>cm[c]<0).map(c=>COLS[c][0]);
+  const missingCols=INPUT_COLS.filter(c=>cm[c]<0&&c!==31).map(c=>COLS[c][0]);
   const map=new Map(), warn=[], dupes=[];
   for(let r=hr+1;r<rows.length;r++){
     const row=rows[r]||[]; const code=String(row[codeCol]==null?'':row[codeCol]).trim();
@@ -920,7 +946,7 @@ function parseInputRows(rows){
       const raw=row[cm[c]];
       if(raw==null||raw==='') return;
       const v=typeof raw==='number'?raw:parseFloat(String(raw).replace(/[,\s৳]/g,''));
-      if(isNaN(v)) warn.push(`${code}: "${COLS[c][0]}" e number na ("${raw}"), 0 dhora hoyeche`); else a[c]=v;
+      if(isNaN(v)) warn.push(`${code}: "${COLS[c][0]}" e number na ("${raw}"), ${c===31?'auto TDS use hobe':'0 dhora hoyeche'}`); else { a[c]=v; if(c===31) a.tdsSet=true }
     });
     const key=code.toLowerCase(); if(map.has(key)) dupes.push(code);
     a.code=code; map.set(key,a);
@@ -970,9 +996,9 @@ $('#btnAdjust').onclick=()=>{ if(!INPUTS||!ALL.length) return; ADJUSTED=true; ge
 $('#btnTemplate').onclick=()=>{
   if(!ALL.length){ alert('Age data load hote din.'); return }
   const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v };
-  const head=['Staff Code','Name',...INPUT_COLS.map(c=>COLS[c][0])];
+  const head=['Staff Code','Name',...INPUT_COLS.map(c=>c===31?'Income Tax (TDS) - khali rakhle auto':COLS[c][0])];
   const lines=[head.map(q).join(',')];
-  ALL.forEach(r=>lines.push([r[1],r[2],...INPUT_COLS.map(c=>num(r[c]))].map(q).join(',')));
+  ALL.forEach(r=>lines.push([r[1],r[2],...INPUT_COLS.map(c=>c===31?(r._tds==='file'?r[31]:''):(ADJUSTED?num(r[c]):0))].map(q).join(',')));
   const blob=new Blob(['﻿'+lines.join('\r\n')],{type:'text/csv;charset=utf-8'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='Salary_Input_Template.csv'; document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
