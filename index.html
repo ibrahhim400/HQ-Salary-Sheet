@@ -307,9 +307,9 @@ if(store.get('ok')===CONFIG.PASSWORD_HASH) showApp();
 let META={company:'',title:''}, ALL=[];
 let view={f:'all',dept:'',q:''};
 
-function gvizUrl(handler,headers){
+function gvizUrl(handler,headers,gid){
   const tqx='out:json'+(handler?';responseHandler:'+handler:'');
-  return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=${tqx}&gid=${CONFIG.GID}&headers=${headers||0}&_=${Date.now()}`;
+  return `https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=${tqx}&gid=${gid||CONFIG.GID}&headers=${headers||0}&_=${Date.now()}`;
 }
 function parseGviz(text){
   if(/^\s*</.test(text)) throw new Error('Sheet public na. Google Sheet e Share > "Anyone with the link" > Viewer set korun.');
@@ -319,24 +319,24 @@ function parseGviz(text){
   if(o.status==='error') throw new Error((o.errors&&o.errors[0]&&o.errors[0].detailed_message)||'Google Sheet error.');
   return o.table;
 }
-function jsonp(headers){
+function jsonp(headers,gid){
   return new Promise((res,rej)=>{
     const cb='__gv'+Math.random().toString(36).slice(2), sc=document.createElement('script');
     const t=setTimeout(()=>{cleanup();rej(new Error('Timeout'))},20000);
     function cleanup(){clearTimeout(t);delete window[cb];sc.remove()}
     window[cb]=o=>{cleanup(); o.status==='error' ? rej(new Error('Google Sheet error.')) : res(o.table)};
     sc.onerror=()=>{cleanup();rej(new Error('Load hoy nai'))};
-    sc.src=gvizUrl(cb,headers); document.head.appendChild(sc);
+    sc.src=gvizUrl(cb,headers,gid); document.head.appendChild(sc);
   });
 }
-async function fetchTable(headers){
-  const url=gvizUrl(null,headers);
+async function fetchTable(headers,gid){
+  const url=gvizUrl(null,headers,gid);
   try{
     const r=await fetch(url); if(!r.ok) throw new Error('HTTP '+r.status);
     return parseGviz(await r.text());
   }catch(e){
     if(/public na/.test(e.message)) throw e;
-    return await jsonp(headers);           // fallback (no CORS needed)
+    return await jsonp(headers,gid);           // fallback (no CORS needed)
   }
 }
 let CSVROWS=null;
@@ -412,6 +412,84 @@ const SOURCE_COLS=[1,2,3,4,5,6,7,8,9,10,12,13,18,19];       // columns pulled fr
 const OVR_KEY='salaryMapOverrides:'+CONFIG.SHEET_ID+':'+CONFIG.GID;
 function loadOverrides(){ try{ return JSON.parse(localStorage.getItem(OVR_KEY)||'{}') }catch(e){ return {} } }
 function saveOverrides(o){ try{ localStorage.setItem(OVR_KEY,JSON.stringify(o)) }catch(e){} }
+/* ================= Intern tab (second tab of the same Google Sheet) =================
+   Same salary formulas / Generate / Adjustment File / Excel as the HQ tab. Intern rules: Bank Account, Bank and Routing are always
+   "Paid by Cheque"; Gross comes from "Gross Salary"; Income Tax (TDS) is always 0; status + last working day come from the
+   mixed column "Active / Last Working Day" (text "Active" or a date). */
+const NOT_JOINED_RX=/^(did[\s_-]*not[\s_-]*join(ed)?|not[\s_-]*joined|never[\s_-]*joined|not[\s_-]*join)$/i;   // 'Not Joined' / 'Did not Join' -> never in the salary sheet
+const INTERN={GID:'61215767'};
+let INTERN_RAW=null, INTERN_CSV=null, INTERN_LABELS=null, INTERN_ERR='';
+const IRX={1:[/staff (id|code)|employee id|emp\.? id/],2:[/^name/],3:[/^date of joining$/,/joining/],4:[/last working/,/^active\b/],5:[/^(employee|employment|employement|emp\.?) status$/,/^status$/],6:[/designation/],7:[/^dep\w*ment$/,/dep\w*ment/],18:[/^gross salary$/,/^gross\b/,/^salary\b/]};
+const MNUM={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+function parseDateStr(t){
+  if(t instanceof Date) return t;
+  t=String(t==null?'':t).trim(); if(!t) return null;
+  let m=t.match(/^(\d{1,2})[-\s\/.,]*([A-Za-z]{3,})[-\s\/.,]*(\d{2,4})$/);
+  if(m){ const mo=MNUM[m[2].slice(0,3).toLowerCase()]; if(mo!==undefined){ let y=+m[3]; if(y<100) y+=2000; return new Date(y,mo,Math.min(+m[1],new Date(y,mo+1,0).getDate())) } }   // 31-April -> 30-April
+  m=t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/);
+  if(m){ let y=+m[3]; if(y<100) y+=2000; return new Date(y,+m[2]-1,Math.min(+m[1],new Date(y,+m[2],0).getDate())) }   // dd/mm/yyyy
+  return null;
+}
+async function fetchIntern(){
+  INTERN_RAW=null; INTERN_CSV=null; INTERN_LABELS=null; INTERN_ERR='';
+  try{
+    INTERN_RAW=(await fetchTable(0,INTERN.GID)).rows;
+    const hr=headerRowIndex(INTERN_RAW);
+    if(hr>=0){ try{ INTERN_LABELS=((await fetchTable(hr+1,INTERN.GID)).cols||[]).map(c=>String((c&&c.label)||'').trim()) }catch(e){ INTERN_LABELS=null } }
+    try{ const r=await fetch(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${INTERN.GID}&_=${Date.now()}`); if(r.ok){ const t=await r.text(); if(!/^\s*</.test(t)) INTERN_CSV=readCsv(t) } }catch(e){ INTERN_CSV=null }
+  }catch(e){ INTERN_RAW=null; INTERN_ERR=e.message||'Intern tab load hoy nai' }
+}
+function buildInterns(rows,sm,mainRows){
+  META.internInfo={n:0,missing:[],warn:[],already:[]};
+  const haveCodes=mainRows.map(r=>r[1]), byCode=new Map(mainRows.map(r=>[String(r[1]).trim().toLowerCase(),r]));
+  if(!rows) return [];
+  const g=(r,c)=>gv(rows[r]&&rows[r].c&&rows[r].c[c]);
+  const hr=headerRowIndex(rows); if(hr<0){ META.internInfo.missing.push('Header row (Staff Id No / Name)'); return [] }
+  const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
+  const width=Math.max(INTERN_LABELS?INTERN_LABELS.length:0,...rows.slice(0,hr+1).map(r=>(r.c||[]).length));
+  const labels=[]; for(let c=0;c<width;c++){ let x=norm(g(hr,c)); if(!x&&INTERN_LABELS&&INTERN_LABELS[c]) x=norm(INTERN_LABELS[c]); labels.push(x) }
+  const map={}, used=new Set();
+  Object.entries(IRX).forEach(([k,rxs])=>{ for(const r of rxs){ const c=labels.findIndex((l,i)=>!used.has(i)&&l&&r.test(l)); if(c>=0){ map[k]=c; used.add(c); break } } });
+  [1,2,3,4,18].forEach(k=>{ if(map[k]===undefined) META.internInfo.missing.push(COLS[k][0]) });
+  if(map[1]===undefined||map[2]===undefined) return [];
+  const out=[], bom=sm&&new Date(sm.y,sm.m,1), eom=sm&&new Date(sm.y,sm.m,sm.days), seen=new Set(haveCodes.map(x=>String(x).trim().toLowerCase()));
+  rows.forEach((row,ri)=>{
+    if(ri<=hr) return;
+    const code=g(ri,map[1]), name=g(ri,map[2]);
+    if(!(typeof code==='string'&&/^[A-Za-z]+-\d+$/.test(code.trim())&&name)) return;
+    const a=Array(NCOL).fill(null);
+    a[1]=code.trim(); a[2]=String(name).trim();
+    const csvRow=(INTERN_CSV&&INTERN_CSV[ri]&&String(INTERN_CSV[ri][map[1]]==null?'':INTERN_CSV[ri][map[1]]).trim().toLowerCase()===a[1].toLowerCase())?INTERN_CSV[ri]:null;
+    const pick=k=>{ let v=map[k]>=0&&map[k]!==undefined?g(ri,map[k]):null; if(typeof v==='string') v=v.trim(); if((v==null||v==='')&&csvRow&&map[k]!==undefined){ const t=String(csvRow[map[k]]==null?'':csvRow[map[k]]).trim(); if(t) v=t } return v };   // typed API blanks mixed cells -> CSV text
+    a[3]=parseDateStr(pick(3)); a[6]=pick(6); a[7]=pick(7); a[18]=num(pick(18));
+    const st=pick(4), stT=String(st==null?'':(st instanceof Date?'D':st)).trim();
+    const sv=String(map[5]!==undefined?(pick(5)||''):'').trim();                       // separate 'Employee Status' column, if the tab has one
+    let notJoined=false;
+    if(NOT_JOINED_RX.test(stT)||NOT_JOINED_RX.test(sv)){ notJoined=true; a[4]='Not Joined' }
+    else if(st instanceof Date){ a[4]='Resigned'; a[5]=st }
+    else { const d=parseDateStr(stT);
+      if(d){ a[4]='Resigned'; a[5]=d }
+      else if(/resign/i.test(stT)||/resign/i.test(sv)){ a[4]='Resigned'; META.internInfo.warn.push(`${a[1]} ${a[2]}: Resigned kintu Last Working Day paoa jay nai`) }
+      else { a[4]='Active'; if(stT&&!/^active$/i.test(stT)) META.internInfo.warn.push(`${a[1]} ${a[2]}: Status/Last Working Day bujha jay nai ("${stT}"), Active dhora hoyeche`) } }
+    a[9]=a[10]=a[12]='Paid by Cheque'; a[11]='Tejgaon Branch'; a[35]=''; a._intern=true; a._row=ri+1;
+    a._sheet=a.slice();
+    if(notJoined){ META.excluded.push([a,'Status: Not Joined (Intern)']); return }
+    if(seen.has(a[1].toLowerCase())){                      // already in the HQ tab: keep that row (no double entry) but apply the Intern rules to it
+      const ex=byCode.get(a[1].toLowerCase());
+      if(ex){ ex._intern=true; ex[9]=ex[10]=ex[12]='Paid by Cheque'; ex._sheet[9]=ex._sheet[10]=ex._sheet[12]='Paid by Cheque'; ex._bankBlocked=false; META.internInfo.already.push(a[1]) }
+      else META.internInfo.warn.push(`${a[1]} ${a[2]}: Intern tab e duplicate Staff Code, ekta row nowa hoyeche`);
+      return }
+    seen.add(a[1].toLowerCase());
+    recalc(a,sm);
+    if(sm){
+      if(a[5] instanceof Date && a[5]<bom){ META.excluded.push([a,'Intern: Last Working Day '+fmtDate(a[5])+' (ei maser age resign)']); return }
+      if(a[3] instanceof Date && a[3]>eom){ META.excluded.push([a,'Intern: Joining Date '+fmtDate(a[3])+' (ei maser pore join)']); return }
+    }
+    out.push(a);
+  });
+  META.internInfo.n=out.length;
+  return out;
+}
 /* ================= Income Tax (TDS) - same rules as "TDS SALARY Calculation Male" (FY 2026-27 & 2027-28) =================
    Yearly gross = (Gross + special allowance) x 12 (+ bonus);  exemption = min(1/3 of that, 500,000);  taxable = yearly - exemption.
    Slabs: 0% up to 400,000 | 10% next 300,000 (minimum tax 5,000) | 15% next 400,000 | 20% next 500,000 | 25% next 2,000,000 | 30% above 3,600,000.
@@ -449,12 +527,13 @@ function recalc(a,sm){
   a._in=null;
   INPUT_COLS.forEach(c=>{ a[c]=0 });                      // before adjustment: salary has no adjustments
   a._tds=null; a._tdsAuto=null;
-  if(tdsApplies(sm)){ a._tdsAuto=calcTds(num(a[18])); a[31]=a._tdsAuto; a._tds='auto' }   // Income Tax (TDS) is automatic
+  if(tdsApplies(sm)&&!a._intern){ a._tdsAuto=calcTds(num(a[18])); a[31]=a._tdsAuto; a._tds='auto' }   // Income Tax (TDS) is automatic
   if(INPUTS && ADJUSTED){                                 // 'Adjust from Salary' applies the uploaded sheet
     const u=INPUTS.map.get(String(a[1]).trim().toLowerCase());
     INPUT_COLS.forEach(c=>{ if(c===31){ if(u&&u.tdsSet){ a[31]=u[31]; a._tds='file' } } else a[c]=u?u[c]:0 });
     a._in=u?'ok':'missing';
   }
+  if(a._intern){ a[31]=0; a._tds='intern' }                // Intern: TDS always 0
   { const m=MANUAL[String(a[1]).trim().toLowerCase()]; if(m) EDIT_COLS.forEach(c=>{ if(m[c]!==undefined) a[c]=m[c] }) }   // typed in the sheet wins
   if(sm) a[19]=sm.days;                                   // Month Days = days of the selected salary month (auto)
   const S=num(a[18]), T=num(a[19])||1, W=num(a[22]);
@@ -496,7 +575,7 @@ function buildModel(rows){
       a[11]='Tejgaon Branch';                     // Branch is always Tejgaon Branch
       a[35]='';                                   // Remarks is always left blank (never pulled from the sheet)
       if(CONFIG.EXCLUDE_IDS.map(x=>x.toLowerCase()).includes(String(a[1]).trim().toLowerCase())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Manually excluded']); return }
-      if(/^not[\s_-]*joined$/i.test(String(a[4]==null?'':a[4]).trim())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Status: Not Joined']); return }   // never in the salary sheet
+      if(NOT_JOINED_RX.test(String(a[4]==null?'':a[4]).trim())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Status: Not Joined / Did not Join']); return }   // never in the salary sheet
       a._row=ri+1; allA.push(a);
       a._sheet=a.slice(); recalc(a,sm);
       /* Only this month's payroll: active + resigned-in-this-month. */
@@ -565,8 +644,11 @@ let RAW=null;
 function ingest(){
   $('#banner').innerHTML='';
   ALL=buildModel(RAW);
+  { const sm=salaryMonth(); const iv=buildInterns(INTERN_RAW,sm,ALL); ALL=[...ALL,...iv]; ALL.forEach((a,i)=>{ a[0]=i+1; a._sheet[0]=i+1 }) }
   if(!ALL.length) throw new Error('Kono employee row paoa jay nai. Sheet er gid ('+CONFIG.GID+') ba salary month thik ache ki?');
   $('#company').textContent=META.company; $('#title').textContent=META.title; document.title=META.company+' - '+META.title;
+  if(INTERN_ERR) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Intern tab sync hoy nai</b> (${esc(INTERN_ERR)}). Salary sheet e shudhu HQ tab er employee ache.</div>`);
+  else if(META.internInfo&&META.internInfo.missing.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Intern tab e ei column paoa jay nai: <b>${META.internInfo.missing.map(esc).join(', ')}</b>.</div>`);
   if(META.missingCols.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Google Sheet e ei column gulo paoa jay nai (header nam mile nai), tai khali dekhacche: <b>${META.missingCols.map(k=>esc(COLS[k][0])).join(', ')}</b>. Niche "Data checks &gt; Column mapping" e giye dropdown theke sothik column ta select koro (ekbar korle mone rakhbe).</div>`);
   if(META.noAccount.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn"><b>Bank account number paoa jay nai (${META.noAccount.length} jon):</b> ${META.noAccount.slice(0,12).map(a=>esc(a[1]+' '+a[2])).join('; ')}${META.noAccount.length>12?' ...':''}. Google Sheet e number ache kina, ar header "Bank Account Number" kina dekho.</div>`);
   if(META.sciAcct.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Account number scientific format e (3.1E+12) ache, nibo na:</b> ${META.sciAcct.map(esc).join(', ')}. Google Sheet e oi cell er Format &gt; Number &gt; Plain text kore abar number boshao.</div>`);
@@ -582,8 +664,9 @@ async function load(){
     RAW=await fetchRows();
     await fetchColLabels(RAW);
     await fetchCsvRows();
+    await fetchIntern();
     ingest();
-    $('#status').textContent=`Synced ${new Date().toLocaleTimeString()} · ${ALL.length} employees`;
+    $('#status').textContent=`Synced ${new Date().toLocaleTimeString()} · ${ALL.length} employees${META.internInfo?' (Intern '+META.internInfo.n+')':''}`;
   }catch(e){
     $('#banner').innerHTML=`<div class="banner bad"><b>Sync hoy nai.</b> ${esc(e.message)}</div>`;
     $('#status').textContent='Sync hoy nai';
@@ -821,6 +904,7 @@ function runChecks(){
     if(r[4]==='Resigned' && !r[5]) L.push(`${r[1]} ${r[2]}: Resigned kintu Last Working Day nei`);
   });
   ALL.filter(r=>r._tds==='file').forEach(r=>L.push(`${r[1]} ${r[2]}: TDS Adjustment File theke ${fmtMoney(r[31])} (auto hisab ${fmtMoney(r._tdsAuto)})`));
+  if(META.internInfo){ L.push(`Intern tab: ${META.internInfo.n} jon notun + ${META.internInfo.already.length} jon age-i HQ tab e chilo (double hoy nai). Intern rule: Bank = Paid by Cheque, TDS = 0`); META.internInfo.warn.forEach(w=>L.push(w)) }
   if(META.noAccount.length) L.push(`Account number nei (${META.noAccount.length} jon): ${META.noAccount.map(a=>a[1]+' '+a[2]).join('; ')}`);
   const sm=salaryMonth();
   if(sm) ALL.forEach(r=>{
