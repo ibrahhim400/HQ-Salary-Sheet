@@ -804,10 +804,20 @@ $('#tbl').addEventListener('change',e=>{
   else { MANUAL[key][c]=parseFloat(raw); inp.classList.add('set'); inp.value=String(parseFloat(raw)) }
   saveManual();
   recalc(row,salaryMonth());
+  inp.dataset.orig=inp.value;
   if(raw===''&&!inp.value&&c!==35) inp.value=row[c]?String(num(row[c])):'';
   const tr=inp.closest('tr'); refreshRow(tr,row);
   const rows=visible(); renderCards(rows); const tf=document.querySelector('#tbl tfoot'); if(tf) tf.innerHTML=footHtml(rows);
   showGenState(); runChecks();
+});
+$('#tbl').addEventListener('focusin',e=>{ if(e.target.matches&&e.target.matches('input.cellin')){ e.target.dataset.orig=e.target.value; setTimeout(()=>e.target.select(),0) } });   // like Excel: typing replaces the cell
+$('#tbl').addEventListener('keydown',e=>{
+  const t=e.target; if(!t.matches||!t.matches('input.cellin')) return;
+  if(e.key==='Escape'){                                    // cancel this edit, restore the previous value
+    e.preventDefault(); t.value=t.dataset.orig!==undefined?t.dataset.orig:t.value; t.classList.remove('bad'); t.title=''; t.blur(); return }
+  if(e.key==='Delete'){                                    // Delete clears the whole cell (when all text is selected or cursor is at the end)
+    const all=t.selectionStart===0&&t.selectionEnd===t.value.length, atEnd=t.selectionStart===t.value.length&&t.selectionEnd===t.value.length;
+    if(all||atEnd){ e.preventDefault(); t.value=''; t.dispatchEvent(new Event('change',{bubbles:true})); return } }
 });
 $('#tbl').addEventListener('keydown',e=>{
   if(e.key!=='Enter'||!e.target.matches('input.cellin')) return;
