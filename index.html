@@ -418,7 +418,7 @@ function saveOverrides(o){ try{ localStorage.setItem(OVR_KEY,JSON.stringify(o)) 
    mixed column "Active / Last Working Day" (text "Active" or a date). */
 const NOT_JOINED_RX=/^(did[\s_-]*not[\s_-]*join(ed)?|not[\s_-]*joined|never[\s_-]*joined|not[\s_-]*join)$/i;   // 'Not Joined' / 'Did not Join' -> never in the salary sheet
 const INTERN={GID:'61215767'};
-let INTERN_RAW=null, INTERN_CSV=null, INTERN_LABELS=null, INTERN_ERR='';
+let INTERN_RAW=null, INTERN_CSV=null, INTERN_LABELS=null, INTERN_ERR='', INTERN_CSVERR='';
 const IRX={1:[/staff (id|code)|employee id|emp\.? id/],2:[/^name/],3:[/^date of joining$/,/joining/],4:[/last working/,/^active\b/,/^(employee|employment|employement|emp\.?) status$/,/status/],5:[/^(employee|employment|employement|emp\.?) status$/,/status/],6:[/designation/],7:[/^dep\w*ment$/,/dep\w*ment/],18:[/^gross salary$/,/^gross\b/,/^salary\b/]};
 const MNUM={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
 function parseDateStr(t){
@@ -431,12 +431,13 @@ function parseDateStr(t){
   return null;
 }
 async function fetchIntern(){
-  INTERN_RAW=null; INTERN_CSV=null; INTERN_LABELS=null; INTERN_ERR='';
+  INTERN_RAW=null; INTERN_CSV=null; INTERN_LABELS=null; INTERN_ERR=''; INTERN_CSVERR='';
   try{
     INTERN_RAW=(await fetchTable(0,INTERN.GID)).rows;
     const hr=headerRowIndex(INTERN_RAW);
     if(hr>=0){ try{ INTERN_LABELS=((await fetchTable(hr+1,INTERN.GID)).cols||[]).map(c=>String((c&&c.label)||'').trim()) }catch(e){ INTERN_LABELS=null } }
-    try{ const r=await fetch(`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${INTERN.GID}&_=${Date.now()}`); if(r.ok){ const t=await r.text(); if(!/^\s*</.test(t)) INTERN_CSV=readCsv(t) } }catch(e){ INTERN_CSV=null }
+    const csvUrls=[`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/export?format=csv&gid=${INTERN.GID}&_=${Date.now()}`,`https://docs.google.com/spreadsheets/d/${CONFIG.SHEET_ID}/gviz/tq?tqx=out:csv&gid=${INTERN.GID}&headers=0&_=${Date.now()}`];
+    for(const u of csvUrls){ try{ const r=await fetch(u); if(!r.ok){ INTERN_CSVERR='HTTP '+r.status; continue } const t=await r.text(); if(/^\s*</.test(t)){ INTERN_CSVERR='Sheet public na'; continue } INTERN_CSV=readCsv(t); INTERN_CSVERR=''; break }catch(e){ INTERN_CSVERR=e.message||'CSV load hoy nai' } }
   }catch(e){ INTERN_RAW=null; INTERN_ERR=e.message||'Intern tab load hoy nai' }
 }
 function buildInterns(rows,sm,mainRows){
@@ -446,12 +447,17 @@ function buildInterns(rows,sm,mainRows){
   const g=(r,c)=>gv(rows[r]&&rows[r].c&&rows[r].c[c]);
   const hr=headerRowIndex(rows); if(hr<0){ META.internInfo.missing.push('Header row (Staff Id No / Name)'); return [] }
   const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
-  const width=Math.max(INTERN_LABELS?INTERN_LABELS.length:0,INTERN_CSV&&INTERN_CSV[hr]?INTERN_CSV[hr].length:0,...rows.slice(0,hr+1).map(r=>(r.c||[]).length));
-  const labels=[]; for(let c=0;c<width;c++){ let x=norm(g(hr,c)); if(!x&&INTERN_LABELS&&INTERN_LABELS[c]) x=norm(INTERN_LABELS[c]); if(!x&&INTERN_CSV&&INTERN_CSV[hr]) x=norm(INTERN_CSV[hr][c]); labels.push(x) }   // typed columns have no header text in the API: use the label request, then the CSV header row
+  const width=Math.max(INTERN_LABELS?INTERN_LABELS.length:0,INTERN_CSV&&INTERN_CSV[0]?Math.max(...INTERN_CSV.slice(0,20).map(r=>r.length)):0,...rows.slice(0,hr+1).map(r=>(r.c||[]).length));
+  /* The CSV copy (all text) is matched by header row + Staff Code, never by row number. */
+  let csvHr=-1, csvSc=-1;
+  if(INTERN_CSV){ for(let r=0;r<Math.min(INTERN_CSV.length,20)&&csvHr<0;r++){ const lab=(INTERN_CSV[r]||[]).map(norm); const sc=lab.findIndex(x=>IRX[1][0].test(x)); if(sc>=0&&lab.some(x=>/^name/.test(x))){ csvHr=r; csvSc=sc } } }
+  const csvByCode=new Map(); if(csvHr>=0) INTERN_CSV.slice(csvHr+1).forEach(r=>{ const k=String(r[csvSc]==null?'':r[csvSc]).trim().toLowerCase(); if(k&&!csvByCode.has(k)) csvByCode.set(k,r) });
+  const csvHead=csvHr>=0?INTERN_CSV[csvHr]:null;
+  const labels=[]; for(let c=0;c<width;c++){ let x=norm(g(hr,c)); if(!x&&INTERN_LABELS&&INTERN_LABELS[c]) x=norm(INTERN_LABELS[c]); if(!x&&csvHead) x=norm(csvHead[c]); labels.push(x) }   // typed columns have no header text in the API: use the label request, then the CSV header row
   const map={}, used=new Set();
   Object.entries(IRX).forEach(([k,rxs])=>{ for(const r of rxs){ const c=labels.findIndex((l,i)=>!used.has(i)&&l&&r.test(l)); if(c>=0){ map[k]=c; used.add(c); break } } });
   [1,2,3,4,18].forEach(k=>{ if(map[k]===undefined) META.internInfo.missing.push(COLS[k][0]) });
-  META.internInfo.heads=labels.filter(Boolean);
+  META.internInfo.heads=labels.filter(Boolean); META.internInfo.csvErr=INTERN_CSV?'':(INTERN_CSVERR||'CSV load hoy nai'); META.internInfo.csvHr=csvHr;
   if(map[1]===undefined||map[2]===undefined) return [];
   const out=[], bom=sm&&new Date(sm.y,sm.m,1), eom=sm&&new Date(sm.y,sm.m,sm.days), seen=new Set(haveCodes.map(x=>String(x).trim().toLowerCase()));
   rows.forEach((row,ri)=>{
@@ -460,7 +466,7 @@ function buildInterns(rows,sm,mainRows){
     if(!(typeof code==='string'&&/^[A-Za-z]+-\d+$/.test(code.trim())&&name)) return;
     const a=Array(NCOL).fill(null);
     a[1]=code.trim(); a[2]=String(name).trim();
-    const csvRow=(INTERN_CSV&&INTERN_CSV[ri]&&String(INTERN_CSV[ri][map[1]]==null?'':INTERN_CSV[ri][map[1]]).trim().toLowerCase()===a[1].toLowerCase())?INTERN_CSV[ri]:null;
+    const csvRow=csvByCode.get(a[1].toLowerCase())||null;
     const pick=k=>{ let v=map[k]>=0&&map[k]!==undefined?g(ri,map[k]):null; if(typeof v==='string') v=v.trim(); if((v==null||v==='')&&csvRow&&map[k]!==undefined){ const t=String(csvRow[map[k]]==null?'':csvRow[map[k]]).trim(); if(t) v=t } return v };   // typed API blanks mixed cells -> CSV text
     a[3]=parseDateStr(pick(3)); a[6]=pick(6); a[7]=pick(7); a[18]=num(pick(18));
     const st=pick(4), stT=String(st==null?'':(st instanceof Date?'D':st)).trim();
@@ -471,7 +477,7 @@ function buildInterns(rows,sm,mainRows){
     else { const d=parseDateStr(stT);
       if(d){ a[4]='Resigned'; a[5]=d }
       else if(/resign/i.test(stT)||/resign/i.test(sv)){ a[4]='Resigned'; META.internInfo.warn.push(`${a[1]} ${a[2]}: Resigned kintu Last Working Day paoa jay nai`) }
-      else { a[4]='Active'; if(stT&&!/^active$/i.test(stT)) META.internInfo.warn.push(`${a[1]} ${a[2]}: Status/Last Working Day bujha jay nai ("${stT}"), Active dhora hoyeche`) } }
+      else { a[4]='Active'; if(!stT&&!csvRow) META.internInfo.warn.push(`${a[1]} ${a[2]}: Status khali (CSV copy nai), Last Working Day thakle seta dhora hoy nai. Check koro`); if(stT&&!/^active$/i.test(stT)) META.internInfo.warn.push(`${a[1]} ${a[2]}: Status/Last Working Day bujha jay nai ("${stT}"), Active dhora hoyeche`) } }
     a[9]=a[10]=a[12]='Paid by Cheque'; a[11]='Tejgaon Branch'; a[35]=''; a._intern=true; a._row=ri+1;
     a._sheet=a.slice();
     if(notJoined){ META.excluded.push([a,'Status: Not Joined (Intern)']); return }
@@ -649,7 +655,7 @@ function ingest(){
   if(!ALL.length) throw new Error('Kono employee row paoa jay nai. Sheet er gid ('+CONFIG.GID+') ba salary month thik ache ki?');
   $('#company').textContent=META.company; $('#title').textContent=META.title; document.title=META.company+' - '+META.title;
   if(INTERN_ERR) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Intern tab sync hoy nai</b> (${esc(INTERN_ERR)}). Salary sheet e shudhu HQ tab er employee ache.</div>`);
-  else if(META.internInfo&&META.internInfo.missing.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Intern tab e ei column paoa jay nai: <b>${META.internInfo.missing.map(esc).join(', ')}</b>. Tab e paoa header: ${esc((META.internInfo.heads||[]).join(' | ')||'(kono header nai)')}</div>`);
+  else if(META.internInfo&&META.internInfo.missing.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Intern tab e ei column paoa jay nai: <b>${META.internInfo.missing.map(esc).join(', ')}</b>. Tab e paoa header: ${esc((META.internInfo.heads||[]).join(' | ')||'(kono header nai)')}${META.internInfo.csvErr?'<br><b>CSV copy load hoy nai</b> ('+esc(META.internInfo.csvErr)+'): typed column (date/number) er header ta tai paoa jachche na.':''}</div>`);
   if(META.missingCols.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn">Google Sheet e ei column gulo paoa jay nai (header nam mile nai), tai khali dekhacche: <b>${META.missingCols.map(k=>esc(COLS[k][0])).join(', ')}</b>. Niche "Data checks &gt; Column mapping" e giye dropdown theke sothik column ta select koro (ekbar korle mone rakhbe).</div>`);
   if(META.noAccount.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner warn"><b>Bank account number paoa jay nai (${META.noAccount.length} jon):</b> ${META.noAccount.slice(0,12).map(a=>esc(a[1]+' '+a[2])).join('; ')}${META.noAccount.length>12?' ...':''}. Google Sheet e number ache kina, ar header "Bank Account Number" kina dekho.</div>`);
   if(META.sciAcct.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Account number scientific format e (3.1E+12) ache, nibo na:</b> ${META.sciAcct.map(esc).join(', ')}. Google Sheet e oi cell er Format &gt; Number &gt; Plain text kore abar number boshao.</div>`);
