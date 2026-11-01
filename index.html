@@ -533,6 +533,7 @@ function recalc(a,sm){
   if(!a._sheet) a._sheet=a.slice();                       // raw values exactly as in Google Sheet
   for(let c=0;c<NCOL;c++) a[c]=a._sheet[c];               // always start from the raw sheet values
   a._in=null;
+  { const bk=String(a[10]==null?'':a[10]).trim(); a[13]=(a._intern||/cheque|check/i.test(bk))?'Cheque':(!bk?'':(/prime\s*bank/i.test(bk)?'PBL':'Other')) }   // Payroll Type: Intern -> Cheque; Prime Bank Limited -> PBL; any other bank -> Other
   INPUT_COLS.forEach(c=>{ a[c]=0 });                      // before adjustment: salary has no adjustments
   a._tds=null; a._tdsAuto=null;
   if(tdsApplies(sm)&&!a._intern){ a._tdsAuto=calcTds(num(a[18])); a[31]=a._tdsAuto; a._tds='auto' }   // Income Tax (TDS) is automatic
