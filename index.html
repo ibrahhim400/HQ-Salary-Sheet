@@ -416,7 +416,7 @@ function saveOverrides(o){ try{ localStorage.setItem(OVR_KEY,JSON.stringify(o)) 
    Same salary formulas / Generate / Adjustment File / Excel as the HQ tab. Intern rules: Bank Account, Bank and Routing are always
    "Paid by Cheque"; Gross comes from "Gross Salary"; Income Tax (TDS) is always 0; status + last working day come from the
    mixed column "Active / Last Working Day" (text "Active" or a date). */
-const NOT_JOINED_RX=/^(did[\s_-]*not[\s_-]*join(ed)?|not[\s_-]*joined|never[\s_-]*joined|not[\s_-]*join)$/i;   // 'Not Joined' / 'Did not Join' -> never in the salary sheet
+const NOT_JOINED_RX=/^(did[\s_-]*not[\s_-]*join(ed)?|not[\s_-]*joined|never[\s_-]*joined|not[\s_-]*join|internship[\s_-]*complete(d)?|intern[\s_-]*complete(d)?)$/i;   // 'Not Joined' / 'Did not Join' / 'Internship Complete' -> never in the salary sheet (only Active + Resigned-this-month are paid)
 const INTERN={GID:'61215767'};
 let INTERN_RAW=null, INTERN_CSV=null, INTERN_LABELS=null, INTERN_ERR='', INTERN_CSVERR='';
 const IRX={1:[/staff (id|code)|employee id|emp\.? id/],2:[/^name/],3:[/^date of joining$/,/joining/],4:[/last working/,/^active\b/,/^(employee|employment|employement|emp\.?) status$/,/status/],5:[/^(employee|employment|employement|emp\.?) status$/,/status/],6:[/designation/],7:[/^dep\w*ment$/,/dep\w*ment/],18:[/^gross salary$/,/^gross\b/,/^salary\b/]};
@@ -480,7 +480,7 @@ function buildInterns(rows,sm,mainRows){
       else { a[4]='Active'; if(!stT&&!csvRow) META.internInfo.warn.push(`${a[1]} ${a[2]}: Status khali (CSV copy nai), Last Working Day thakle seta dhora hoy nai. Check koro`); if(stT&&!/^active$/i.test(stT)) META.internInfo.warn.push(`${a[1]} ${a[2]}: Status/Last Working Day bujha jay nai ("${stT}"), Active dhora hoyeche`) } }
     a[9]=a[10]=a[12]='Paid by Cheque'; a[11]='Tejgaon Branch'; a[35]=''; a._intern=true; a._row=ri+1;
     a._sheet=a.slice();
-    if(notJoined){ META.excluded.push([a,'Status: Not Joined (Intern)']); return }
+    if(notJoined){ META.excluded.push([a,'Status: '+(NOT_JOINED_RX.test(sv)?sv:stT)+' (Intern)']); return }
     if(seen.has(a[1].toLowerCase())){                      // already in the HQ tab: keep that row (no double entry) but apply the Intern rules to it
       const ex=byCode.get(a[1].toLowerCase());
       if(ex){ ex._intern=true; ex[9]=ex[10]=ex[12]='Paid by Cheque'; ex._sheet[9]=ex._sheet[10]=ex._sheet[12]='Paid by Cheque'; ex._bankBlocked=false; META.internInfo.already.push(a[1]) }
@@ -582,7 +582,7 @@ function buildModel(rows){
       a[11]='Tejgaon Branch';                     // Branch is always Tejgaon Branch
       a[35]='';                                   // Remarks is always left blank (never pulled from the sheet)
       if(CONFIG.EXCLUDE_IDS.map(x=>x.toLowerCase()).includes(String(a[1]).trim().toLowerCase())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Manually excluded']); return }
-      if(NOT_JOINED_RX.test(String(a[4]==null?'':a[4]).trim())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Status: Not Joined / Did not Join']); return }   // never in the salary sheet
+      if(NOT_JOINED_RX.test(String(a[4]==null?'':a[4]).trim())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Status: '+String(a[4]).trim()+' (salary te ashbe na)']); return }   // never in the salary sheet
       a._row=ri+1; allA.push(a);
       a._sheet=a.slice(); recalc(a,sm);
       /* Only this month's payroll: active + resigned-in-this-month. */
