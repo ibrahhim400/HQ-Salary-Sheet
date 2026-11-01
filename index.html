@@ -533,6 +533,8 @@ function recalc(a,sm){
   if(!a._sheet) a._sheet=a.slice();                       // raw values exactly as in Google Sheet
   for(let c=0;c<NCOL;c++) a[c]=a._sheet[c];               // always start from the raw sheet values
   a._in=null;
+  if(a._intern && !String(a[8]==null?'':a[8]).trim()) a[8]='HQ';                       // Intern: Job Location defaults to HQ
+  if(!String(a[12]==null?'':a[12]).trim()) a[12]='-';                                  // Routing Number blank -> '-' (a value in the Google Sheet is kept as is)
   { const bk=String(a[10]==null?'':a[10]).trim(); a[13]=(a._intern||/cheque|check/i.test(bk))?'Cheque':(!bk?'':(/prime\s*bank/i.test(bk)?'PBL':'Other')) }   // Payroll Type: Intern -> Cheque; Prime Bank Limited -> PBL; any other bank -> Other
   INPUT_COLS.forEach(c=>{ a[c]=0 });                      // before adjustment: salary has no adjustments
   a._tds=null; a._tdsAuto=null;
@@ -693,7 +695,7 @@ const resignedLast=rows=>[...rows.filter(r=>!isResigned(r)),...rows.filter(isRes
 const colFilters={};                               // {columnIndex: Set(of cell texts that are allowed)}
 function cellText(r,i){
   const t=COLS[i][1], v=r[i];
-  if(v==null||v==='') return '(Blank)';
+  if(v==null||v==='') return i===5?'-':'(Blank)';
   if(t==='money') return fmtMoney(num(v));
   if(t==='date') return v instanceof Date?fmtDate(v):String(v);
   return String(v).trim()||'(Blank)';
@@ -773,7 +775,7 @@ function render(){
       }
       if(t==='money'){ cls.push('num'); txt=fmtMoney(num(v)) }
       else if(t==='int'){ cls.push('ctr'); txt=v==null?'':esc(v) }
-      else if(t==='date'){ cls.push('ctr'); txt=fmtDate(v) }
+      else if(t==='date'){ cls.push('ctr'); txt=fmtDate(v)||(i===5?'-':'') }   // Last Working Day blank -> '-'
       else if(t==='status'){ cls.push('ctr'); txt=v?`<span class="badge ${v==='Resigned'?'res':''}">${esc(v)}</span>`:'' }
       else if(t==='remark'){ cls.push('wrapcell'); txt=esc(v); if(/hold/i.test(v||'')) cls.push('remark-hold') }
       else txt=esc(v);
@@ -1007,7 +1009,7 @@ async function exportXlsx(){
                 ...(sm && d[3] instanceof Date ? {21:`MIN(IF(F${r}="",${eom},F${r}),${eom})-MAX(D${r},${bom})+1`} : {}) }[i];
       if(f) c.value={formula:f,result:num(v)};
       else if(t==='money'||t==='int') c.value = v==null ? null : (t==='int'&&i===0 ? v : num(v));
-      else if(t==='date') { c.value = v instanceof Date ? new Date(Date.UTC(v.getFullYear(),v.getMonth(),v.getDate())) : null; c.numFmt='d-mmm-yyyy' }
+      else if(t==='date') { c.value = v instanceof Date ? new Date(Date.UTC(v.getFullYear(),v.getMonth(),v.getDate())) : (i===5?'-':null); c.numFmt='d-mmm-yyyy' }
       else c.value = v==null ? null : String(v);
       if(t==='money') c.numFmt='#,##0';
       if(t==='int'||t==='date'||t==='status') c.alignment={horizontal:'center'};
