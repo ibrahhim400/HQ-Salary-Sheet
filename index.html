@@ -123,6 +123,7 @@ tbody tr.res .badge{background:var(--res-ink);color:var(--res-bg)}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
 td.edit{padding:2px 3px}
 input.cellin{width:92px;box-sizing:border-box;text-align:right;font:inherit;font-variant-numeric:tabular-nums;padding:4px 6px;border:1px solid var(--line);border-radius:5px;background:#fff;color:#111}
+input.cellin.txt{width:220px;text-align:left}
 input.cellin.set{background:#fff8d6;border-color:#d9b94a;font-weight:650}
 input.cellin:focus{outline:2px solid #2f7d4f;outline-offset:0}
 input.cellin.bad{border-color:#c0392b;background:#fde8e6}
@@ -520,7 +521,7 @@ const INPUT_COLS=[22,25,26,27,29,31,32,33];   // the 8 hand-input columns (TDS i
 let INPUTS=null;                               // uploaded input sheet (kept in memory only)
 let ADJUSTED=false;
 /* Manual typing in the sheet: Absent Days, Arrear, Bonus, Others, Loan/Advance, Other Adjustment (kept per salary month in this tab only) */
-const EDIT_COLS=[22,25,26,27,32,33];
+const EDIT_COLS=[22,25,26,27,29,32,33,35];   // 35 = Remarks (text)
 let MANUAL={};
 function manKey(){ const sm=salaryMonth(); return 'wegro_manual_'+(sm?sm.y+'-'+sm.m:'x') }
 function loadManual(){ try{ MANUAL=JSON.parse(sessionStorage.getItem(manKey())||'{}')||{} }catch(e){ MANUAL={} } }
@@ -765,7 +766,8 @@ function render(){
       if(i<3) cls.push('sticky','c'+i);
       if(EDIT_COLS.includes(i)){
         const mm=MANUAL[String(r[1]).trim().toLowerCase()], set=mm&&mm[i]!==undefined;
-        b+=`<td class="num edit" data-c="${i}"><input class="cellin${set?' set':''}" inputmode="decimal" autocomplete="off" data-code="${esc(r[1])}" data-c="${i}" value="${num(v)?esc(String(num(v))):''}" placeholder="0" aria-label="${esc(COLS[i][0])} - ${esc(r[1])}"></td>`;
+        if(i===35) b+=`<td class="edit" data-c="35"><input class="cellin txt${set?' set':''}" type="text" autocomplete="off" data-code="${esc(r[1])}" data-c="35" value="${esc(v==null?'':String(v))}" placeholder="Remarks" aria-label="Remarks - ${esc(r[1])}"></td>`;
+        else b+=`<td class="num edit" data-c="${i}"><input class="cellin${set?' set':''}" inputmode="decimal" autocomplete="off" data-code="${esc(r[1])}" data-c="${i}" value="${num(v)?esc(String(num(v))):''}" placeholder="0" aria-label="${esc(COLS[i][0])} - ${esc(r[1])}"></td>`;
         return;
       }
       if(t==='money'){ cls.push('num'); txt=fmtMoney(num(v)) }
@@ -793,15 +795,16 @@ function refreshRow(tr,r){
 $('#tbl').addEventListener('change',e=>{
   const inp=e.target.closest('input.cellin'); if(!inp) return;
   const code=inp.dataset.code, c=+inp.dataset.c, key=String(code).trim().toLowerCase();
-  const raw=inp.value.trim().replace(/,/g,''); const row=ALL.find(r=>r[1]===code); if(!row) return;
-  if(raw!==''&&!/^-?\d*\.?\d+$/.test(raw)){ inp.classList.add('bad'); inp.title='Shudhu number likho'; return }
+  const raw=c===35?inp.value.trim():inp.value.trim().replace(/,/g,''); const row=ALL.find(r=>r[1]===code); if(!row) return;
+  if(c!==35&&raw!==''&&!/^-?\d*\.?\d+$/.test(raw)){ inp.classList.add('bad'); inp.title='Shudhu number likho'; return }
   inp.classList.remove('bad'); inp.title='';
   MANUAL[key]=MANUAL[key]||{};
   if(raw===''){ delete MANUAL[key][c]; if(!Object.keys(MANUAL[key]).length) delete MANUAL[key]; inp.classList.remove('set') }
+  else if(c===35){ MANUAL[key][c]=raw; inp.classList.add('set') }
   else { MANUAL[key][c]=parseFloat(raw); inp.classList.add('set'); inp.value=String(parseFloat(raw)) }
   saveManual();
   recalc(row,salaryMonth());
-  if(raw===''&&!inp.value) inp.value=row[c]?String(num(row[c])):'';
+  if(raw===''&&!inp.value&&c!==35) inp.value=row[c]?String(num(row[c])):'';
   const tr=inp.closest('tr'); refreshRow(tr,row);
   const rows=visible(); renderCards(rows); const tf=document.querySelector('#tbl tfoot'); if(tf) tf.innerHTML=footHtml(rows);
   showGenState(); runChecks();
