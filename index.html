@@ -188,6 +188,8 @@ details.map{margin-top:10px}
       <button class="btn primary" id="btnRefresh" type="button" title="Google Sheet theke latest data ane"><svg class="syncico" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15.5 6.2M3 12a9 9 0 0 1 15.5-6.2"/><path d="M18.5 2v4h-4M5.5 22v-4h4"/></svg><span id="syncLbl">Sync Data</span></button>
       <button class="btn" id="btnPrint" type="button" disabled>Print</button>
       <button class="btn primary" id="btnXlsx" type="button" disabled title="Age Adjustment File upload kore Adjust from Salary press koro">Download Final Salary Sheet</button>
+      <span class="chip ok hidden" id="saveChip" title="Apnar kora kaj ei browser e auto save hoy. Refresh korleo thakbe."></span>
+      <button class="btn hidden" id="btnClearSaved" type="button" title="Hate lekha, Adjustment File, sob saved kaj muche felo">Clear saved data</button>
       <button class="btn" id="btnLogout" type="button">Logout</button>
     </div>
   </header>
@@ -292,7 +294,7 @@ async function sha256(str){
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
   return [...new Uint8Array(buf)].map(b=>b.toString(16).padStart(2,'0')).join('');
 }
-function showApp(){ $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden'); load(); }
+function showApp(){ $('#gate').classList.add('hidden'); $('#app').classList.remove('hidden'); setTimeout(()=>{ restoreWork(); touchSaved(); load() },0); }   // after the whole script is parsed (state variables exist)
 $('#loginForm').addEventListener('submit', async e=>{
   e.preventDefault();
   try{
@@ -524,8 +526,44 @@ let ADJUSTED=false;
 const EDIT_COLS=[22,25,26,27,29,32,33,35];   // 35 = Remarks (text)
 let MANUAL={};
 function manKey(){ const sm=salaryMonth(); return 'wegro_manual_'+(sm?sm.y+'-'+sm.m:'x') }
-function loadManual(){ try{ MANUAL=JSON.parse(sessionStorage.getItem(manKey())||'{}')||{} }catch(e){ MANUAL={} } }
-function saveManual(){ try{ sessionStorage.setItem(manKey(),JSON.stringify(MANUAL)) }catch(e){} }
+function loadManual(){ try{ MANUAL=JSON.parse(localStorage.getItem(manKey())||'{}')||{} }catch(e){ MANUAL={} } }
+function saveManual(){ try{ if(manualCount()) localStorage.setItem(manKey(),JSON.stringify(MANUAL)); else localStorage.removeItem(manKey()) }catch(e){} touchSaved() }
+/* ---- Auto-save: month, Adjustment File, Adjust state, 'sheet generated' and hand-typed cells survive a browser refresh ---- */
+const WORK_KEY='wegro_work_v1';
+let RESTORE_GEN=false;
+function saveWork(){
+  try{
+    const o={month:($('#salMonth')||{}).value||'',generated:!!GENERATED,adjusted:!!ADJUSTED,savedAt:Date.now(),
+      inputs:INPUTS?{name:INPUTS.name,at:INPUTS.at,warn:INPUTS.warn||[],dupes:INPUTS.dupes||[],missingCols:INPUTS.missingCols||[],entries:[...INPUTS.map.entries()].map(([k,a])=>({k,a:[...a],tdsSet:!!a.tdsSet,code:a.code}))}:null};
+    if(!INPUTS&&!GENERATED) localStorage.removeItem(WORK_KEY); else localStorage.setItem(WORK_KEY,JSON.stringify(o));
+  }catch(e){}
+  touchSaved();
+}
+function hasSaved(){ try{ if(localStorage.getItem(WORK_KEY)) return true; for(let i=0;i<localStorage.length;i++) if(/^wegro_manual_/.test(localStorage.key(i))) return true }catch(e){} return false }
+function touchSaved(){
+  const on=hasSaved(), c=$('#saveChip'), b=$('#btnClearSaved'); if(!c||!b) return;
+  c.classList.toggle('hidden',!on); b.classList.toggle('hidden',!on);
+  if(on){ const n=manualCount(); c.textContent='Auto-saved '+new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})+(n?' · '+n+' jon er hate lekha':''); }
+}
+function restoreWork(){
+  try{
+    const o=JSON.parse(localStorage.getItem(WORK_KEY)||'null'); if(!o) return;
+    if(o.month) $('#salMonth').value=o.month;
+    if(o.inputs){
+      const map=new Map(); (o.inputs.entries||[]).forEach(e=>{ const a=e.a; a.tdsSet=e.tdsSet; a.code=e.code; map.set(e.k,a) });
+      INPUTS={name:o.inputs.name,at:o.inputs.at,map,warn:o.inputs.warn||[],dupes:o.inputs.dupes||[],missingCols:o.inputs.missingCols||[]};
+      ADJUSTED=!!o.adjusted;
+    }
+    RESTORE_GEN=!!o.generated;
+  }catch(e){}
+}
+function clearSaved(){
+  try{ const del=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k===WORK_KEY||/^wegro_manual_/.test(k)) del.push(k) } del.forEach(k=>localStorage.removeItem(k)) }catch(e){}
+  MANUAL={}; INPUTS=null; ADJUSTED=false; RESTORE_GEN=false;
+  if(ALL.length){ const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm)); showInputInfo(); hideSalary('Saved data muche geche.') } else showInputInfo();
+  try{ localStorage.removeItem(WORK_KEY) }catch(e){}
+  touchSaved();
+}
 function manualCount(){ return Object.keys(MANUAL).filter(k=>Object.keys(MANUAL[k]||{}).length).length }
 function hasAdj(){ return ADJUSTED||manualCount()>0 }                            // true only after 'Adjust from Salary' was pressed
 function recalc(a,sm){
@@ -639,17 +677,18 @@ function showGenState(note){
       : `${note?note+' ':''}Data ready: ${ALL.length} jon employee · ${sm?MONTHS[sm.m]+' '+sm.y:''} · Adjustment: ${ADJUSTED?'applied ('+INPUTS.name+')':'apply kora hoy nai'}. Salary dekhte Generate Salary press koro.`;
   }
 }
-function generateSalary(){
+function generateSalary(quiet){
   if(!ALL.length) return;
   loadManual();
   Object.keys(colFilters).forEach(k=>delete colFilters[k]);
   const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm));     // fresh calculation
   fillDepts(); render(); runChecks();
   GENERATED=true; showGenState();
-  $('#sheetArea').scrollIntoView({behavior:'smooth',block:'start'});
+  if(quiet!==true) $('#sheetArea').scrollIntoView({behavior:'smooth',block:'start'});
+  saveWork();
 }
-function hideSalary(note){ Object.keys(colFilters).forEach(k=>delete colFilters[k]); GENERATED=false; $('#tbl').innerHTML=''; $('#cards').innerHTML=''; showGenState(note) }
-$('#btnGenerate').onclick=generateSalary;
+function hideSalary(note){ Object.keys(colFilters).forEach(k=>delete colFilters[k]); GENERATED=false; $('#tbl').innerHTML=''; $('#cards').innerHTML=''; showGenState(note); saveWork() }
+$('#btnGenerate').onclick=()=>generateSalary();
 $('#btnHide').onclick=()=>hideSalary();
 let RAW=null;
 function ingest(){
@@ -669,6 +708,7 @@ function ingest(){
   GENERATED=false; $('#tbl').innerHTML=''; $('#cards').innerHTML=''; showGenState('Data sync hoyeche.');
 }
 async function load(){
+  const wasGen=GENERATED||RESTORE_GEN; RESTORE_GEN=false;      // Sync Data / refresh keeps the sheet open if it was open
   const btn=$('#btnRefresh'); btn.disabled=true; btn.classList.add('syncing'); $('#syncLbl').textContent='Syncing...'; $('#btnXlsx').disabled=true; $('#btnPrint').disabled=true; $('#btnGenerate').disabled=true;
   $('#status').textContent='Google Sheet theke data ashche...'; $('#banner').innerHTML='';
   try{
@@ -677,6 +717,7 @@ async function load(){
     await fetchCsvRows();
     await fetchIntern();
     ingest();
+    if(wasGen) generateSalary(true);
     $('#status').textContent=`Synced ${new Date().toLocaleTimeString()} · ${ALL.length} employees${META.internInfo?' (Intern '+META.internInfo.n+')':''}`;
   }catch(e){
     $('#banner').innerHTML=`<div class="banner bad"><b>Sync hoy nai.</b> ${esc(e.message)}</div>`;
@@ -684,7 +725,7 @@ async function load(){
     showGenState();
   }finally{ btn.disabled=false; btn.classList.remove('syncing'); $('#syncLbl').textContent='Sync Data' }
 }
-$('#salMonth').addEventListener('change',()=>{ if(RAW){ try{ ingest() }catch(e){ $('#banner').innerHTML=`<div class="banner bad">${esc(e.message)}</div>` } } });
+$('#salMonth').addEventListener('change',()=>{ saveWork(); if(RAW){ try{ ingest() }catch(e){ $('#banner').innerHTML=`<div class="banner bad">${esc(e.message)}</div>` } } });
 $('#btnRefresh').onclick=load;
 $('#btnPrint').onclick=()=>window.print();
 
@@ -1157,14 +1198,16 @@ async function handleUpload(file){
     const parsed=parseInputRows(rows);
     INPUTS={name:file.name,at:new Date().toLocaleTimeString(),...parsed}; ADJUSTED=false;
     if(ALL.length) applyInputs(); else showInputInfo();
+    saveWork();
   }catch(e){
     $('#inStatus').className='inputs-status'; $('#inStatus').innerHTML=`<span style="color:var(--bad)"><b>Upload hoy nai:</b> ${esc(e.message)}</span>`;
   }
 }
 $('#fileIn').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) handleUpload(f); e.target.value=''; });
 $('#lblUpload').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); $('#fileIn').click() } });
-$('#btnClearIn').onclick=()=>{ INPUTS=null; ADJUSTED=false; if(ALL.length) applyInputs(); else showInputInfo(); };
-$('#btnAdjust').onclick=()=>{ if(!INPUTS||!ALL.length) return; ADJUSTED=true; generateSalary(); showInputInfo() };
+$('#btnClearIn').onclick=()=>{ INPUTS=null; ADJUSTED=false; if(ALL.length) applyInputs(); else showInputInfo(); saveWork(); };
+$('#btnClearSaved').onclick=()=>{ if(confirm('Saved sob kaj (hate lekha entry, Adjustment File) muche felbo? Eta ar phire pawa jabe na.')) clearSaved() };
+$('#btnAdjust').onclick=()=>{ if(!INPUTS||!ALL.length) return; ADJUSTED=true; generateSalary(); showInputInfo(); saveWork() };
 $('#btnTemplate').onclick=()=>{
   if(!ALL.length){ alert('Age data load hote din.'); return }
   const q=v=>{ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v };
