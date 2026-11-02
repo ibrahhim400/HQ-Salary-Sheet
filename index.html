@@ -1070,6 +1070,31 @@ async function exportXlsx(){
   const W={0:6,1:10,2:30,3:13,4:10,5:13,6:42,7:28,8:11,9:20,10:22,11:22,12:12,13:11,35:40};
   for(let i=0;i<NCOL;i++) ws.getColumn(i+1).width = W[i] || 13;
 
+  /* ---- 2nd tab: list of the employees in this salary sheet ---- */
+  {
+    const es=wb.addWorksheet('Employee List',{views:[{state:'frozen',ySplit:4}]});
+    es.getCell('A1').value=META.company; es.getCell('A1').font={bold:true,size:14};
+    es.getCell('A2').value=(META.title||'Salary Sheet')+' - Employee List'; es.getCell('A2').font={bold:true,size:12};
+    const nAct=rows.filter(x=>!isResigned(x)).length, nRes=rows.length-nAct;
+    es.getCell('A3').value=`Total ${rows.length} employee  (Active ${nAct} · Resigned ${nRes})`; es.getCell('A3').font={italic:true};
+    const EH=['SL.','Staff Code','Name','Designation','Department','Status','Date of Joining','Last Working Day','Net Payable'];
+    EH.forEach((h,i)=>{ const c=es.getCell(4,i+1); c.value=h; c.font={bold:true}; c.border=border; c.alignment={horizontal:'center',vertical:'middle',wrapText:true}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}} });
+    rows.forEach((d,k)=>{
+      const vals=[k+1,d[1],d[2],d[6],d[7],d[4],d[3] instanceof Date?new Date(Date.UTC(d[3].getFullYear(),d[3].getMonth(),d[3].getDate())):null,d[5] instanceof Date?new Date(Date.UTC(d[5].getFullYear(),d[5].getMonth(),d[5].getDate())):'-',Math.round(num(d[34])*100)/100];
+      vals.forEach((v,i)=>{
+        const c=es.getCell(5+k,i+1); c.value=v==null?null:v; c.border=border;
+        if(i===0||i===5||i===6||i===7) c.alignment={horizontal:'center'};
+        if(i===6||i===7) c.numFmt='d-mmm-yyyy';
+        if(i===8) c.numFmt='#,##0';
+        if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} }
+      });
+    });
+    const tr2=5+rows.length; es.getCell(tr2,1).value='Total'; es.mergeCells(tr2,1,tr2,8);
+    es.getCell(tr2,9).value={formula:`SUM(I5:I${tr2-1})`,result:rows.reduce((t,x)=>t+num(x[34]),0)}; es.getCell(tr2,9).numFmt='#,##0';
+    for(let c=1;c<=9;c++){ const cell=es.getCell(tr2,c); cell.font={bold:true}; cell.border=border; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}} }
+    [6,11,30,40,28,11,15,15,15].forEach((w,i)=>{ es.getColumn(i+1).width=w });
+  }
+
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
   const name=(META.title||'Salary_Sheet').replace(/[^\w\-]+/g,'_').replace(/^HQ_Salary_Sheet/,'HQ_Final_Salary_Sheet')+'.xlsx';
