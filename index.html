@@ -7,7 +7,7 @@
 <title>HQ Salary Sheet</title>
 <style>
 :root{
-  --g-add:#bfe8c6; --h-add:#e3f5e6; --g-ded:#f6c4bd; --h-ded:#fce6e3; --g-pay:#bcd9f5; --h-pay:#e2eefa; --g-stat:#fbd88f; --h-stat:#fdefcf; --g-net:#8fd3a0; --h-net:#cdeed6;
+  --g-add:#bfe8c6; --h-add:#e3f5e6; --g-ded:#f6c4bd; --h-ded:#fce6e3; --g-pay:#bcd9f5; --h-pay:#e2eefa; --g-stat:#fbd88f; --h-stat:#fdefcf; --g-net:#8fd3a0; --h-net:#cdeed6; --g-cmp:#dccbf2; --h-cmp:#efe7fa;
   --res-bg:#fde8e8; --res-ink:#9b1c1c; --res-hover:#fbd5d5;
   --bg:#f6f7f5; --card:#fff; --ink:#1d2420; --muted:#667068; --line:#dfe4de;
   --accent:#2f6b3f; --accent-ink:#fff; --head:#eff6ea; --group:#dfeadb;
@@ -17,7 +17,7 @@
   :root:not([data-theme="light"]){
     --bg:#121613; --card:#1a201b; --ink:#e8ede9; --muted:#97a39a; --line:#2c352e;
     --accent:#6fbf86; --accent-ink:#0e1a12; --head:#223025; --group:#2a3b2d;
-    --g-add:#2c4d34; --h-add:#233b29; --g-ded:#5a2c28; --h-ded:#40221f; --g-pay:#274a6d; --h-pay:#1f3850; --g-stat:#5d4a1a; --h-stat:#43360f; --g-net:#2f6a43; --h-net:#25503a;
+    --g-add:#2c4d34; --h-add:#233b29; --g-ded:#5a2c28; --h-ded:#40221f; --g-pay:#274a6d; --h-pay:#1f3850; --g-stat:#5d4a1a; --h-stat:#43360f; --g-net:#2f6a43; --h-net:#25503a; --g-cmp:#46326b; --h-cmp:#372850;
     --res-bg:#3b1f1f; --res-ink:#f2a3a3; --res-hover:#4a2727;
     --warn:#f0a35e; --warn-bg:#33261a; --bad:#f2928c; --bad-bg:#3a1f1d; --ok-bg:#1f3325; --hover:#202a22;
   }
@@ -66,6 +66,11 @@ thead tr.h th.h-stat{background:var(--h-stat)}
 thead tr.g th.g-net{background:var(--g-net)}
 thead tr.h th.h-net{background:var(--h-net)}
 thead tr.g th.g-net,thead tr.g th.g-pay{font-weight:700}
+thead tr.g th.g-cmp{background:var(--g-cmp);font-weight:700}
+thead tr.h th.h-cmp{background:var(--h-cmp)}
+td.pos{color:#1a7f37;font-weight:650}
+td.neg{color:#b42318;font-weight:650}
+td.reason{white-space:normal;min-width:340px;max-width:420px;font-size:12.5px}
 .gfrozen{position:sticky;left:0;z-index:5;min-width:346px}
 .glabel{position:sticky;left:370px;display:inline-block;padding:0 8px}
 .hcell{display:flex;align-items:center;justify-content:center;gap:6px}
@@ -208,6 +213,13 @@ details.map{margin-top:10px}
       <button class="btn primary" id="btnAdjust" type="button" disabled title="Age Adjustment File upload koro">Adjust from Salary</button>
     </div>
     <div class="inputs-status" id="inStatus"></div>
+    <div class="hint" style="grid-column:1/-1"><b>Previous month comparison:</b> ager masher final salary sheet (.xlsx, ei page theke download kora ba tomar ager sheet) upload koro. Salary sheet e ager mashe ke koto peyechilo ar keno bodle gelo, alada column e dekhabe. Ei page theke ekbar download korle porer mashe nijei ager month dhore nebe.</div>
+    <div class="inputs-actions" style="grid-column:1/-1">
+      <label class="btn" for="filePrev" role="button" tabindex="0" id="lblPrev">Previous Month Salary File</label>
+      <input type="file" id="filePrev" accept=".xlsx,.csv" class="hidden">
+      <button class="btn hidden" id="btnClearPrev" type="button">Clear</button>
+    </div>
+    <div class="inputs-status" id="prevStatus"></div>
   </section>
   <div id="inbanner"></div>
 
@@ -526,6 +538,81 @@ let ADJUSTED=false;
 const EDIT_COLS=[22,25,26,27,29,32,33,35];   // 35 = Remarks (text)
 let MANUAL={};
 function manKey(){ const sm=salaryMonth(); return 'wegro_manual_'+(sm?sm.y+'-'+sm.m:'x') }
+/* ================= Previous month comparison ================= */
+const PREV_COLS=[18,21,22,25,26,27,28,29,30,31,32,33,34];
+const CMP_PARTS=[[18,'Gross Salary','m'],[21,'Applicable Days','d'],[22,'Absent Days','d'],[25,'Salary Arrear','m'],[26,'Bonus','m'],[27,'Others','m'],[29,'Notice Period & Others','m'],[31,'Income Tax (TDS)','m'],[32,'Loan/Advance','m'],[33,'Other Adjustment','m']];
+let PREV=null;   // {name,at,auto,map:Map(code -> {name, <col>:value})}
+function prevMonthOf(sm){ return sm?{y:sm.m===0?sm.y-1:sm.y,m:sm.m===0?11:sm.m-1}:null }
+function prevLabel(){ const p=prevMonthOf(salaryMonth()); return p?MONTHS[p.m].slice(0,3)+"'"+String(p.y).slice(-2):'Prev' }
+function snapKey(y,m){ return 'wegro_snap_'+y+'-'+m }
+function saveSnapshot(rows){
+  const sm=salaryMonth(); if(!sm) return;
+  try{ const o={savedAt:Date.now(),rows:{}}; rows.forEach(r=>{ const e={name:r[2]}; PREV_COLS.forEach(c=>{ e[c]=num(r[c]) }); o.rows[String(r[1]).trim().toLowerCase()]=e });
+    localStorage.setItem(snapKey(sm.y,sm.m),JSON.stringify(o)) }catch(e){}
+}
+function ensurePrev(){
+  if(PREV&&!PREV.auto) return;                              // an uploaded file wins
+  PREV=null; const p=prevMonthOf(salaryMonth()); if(!p) return;
+  try{ const o=JSON.parse(localStorage.getItem(snapKey(p.y,p.m))||'null'); if(!o) return;
+    PREV={auto:true,name:prevLabel()+' salary (ei page theke download kora, auto)',at:new Date(o.savedAt).toLocaleString(),map:new Map(Object.entries(o.rows))} }catch(e){ PREV=null }
+}
+const fmtN=v=>fmtMoney(num(v));
+function cmpRow(a){
+  if(!PREV) return null;
+  const p=PREV.map.get(String(a[1]).trim().toLowerCase()), L=prevLabel();
+  if(!p){
+    const sm0=salaryMonth(); let r='New Employee';
+    if(sm0&&a[3] instanceof Date&&a[3].getFullYear()===sm0.y&&a[3].getMonth()===sm0.m&&a[3].getDate()>1) r+=` (New Joiner: joined ${fmtDate(a[3])}, salary for ${num(a[21])} days only)`;
+    return {isNew:true,prevT:null,prevN:null,dT:num(a[30]),dN:num(a[34]),reason:r} }
+  const prevT=num(p[30]), prevN=num(p[34]), dT=num(a[30])-prevT, dN=num(a[34])-prevN, parts=[];
+  const sm=salaryMonth(), pm=prevMonthOf(sm), pDays=pm?new Date(pm.y,pm.m+1,0).getDate():0;
+  CMP_PARTS.forEach(([c,lab,t])=>{
+    if(p[c]===undefined) return;
+    const pv=num(p[c]), cv=num(a[c]);
+    if(c===21&&sm&&cv===sm.days&&pv===pDays) return;          // full month in both months (31 vs 30 days is not a real change)
+    if(Math.abs(cv-pv)>0.004){
+      if(t==='d') parts.push(c===21?`Salary days ${pv} → ${cv}${pv<pDays&&cv>pv?' (last month was part-month)':''}`:`${lab} ${pv} → ${cv}`);
+      else parts.push(`${lab} ${fmtN(pv)} → ${fmtN(cv)}${c===18?' ('+(cv>pv?'+':'-')+fmtN(Math.abs(cv-pv))+')':''}`);
+    }
+  });
+  if(a[4]==='Resigned') parts.push('Resigned'+(a[5] instanceof Date?' (Last Working Day '+fmtDate(a[5])+', salary for '+num(a[21])+' days)':''));
+  let reason=parts.join('; ');
+  if(!reason) reason=(Math.abs(dT)<0.5&&Math.abs(dN)<0.5)?'No Change':'Calculation change';
+  return {isNew:false,prevT,prevN,dT,dN,reason};
+}
+function parsePrevRows(rows){
+  const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
+  const hr=rows.findIndex(r=>(r||[]).some(x=>HEADER_RX[1].test(norm(x))));
+  if(hr<0) throw new Error('Header row paoa jay nai. "Staff Code" / "Employee ID" column lagbe.');
+  const up=hr>0?(rows[hr-1]||[]):[];                       // 'Total Payable' / 'Net Payable' sit in the group row above the header row
+  const labels=(rows[hr]||[]).map((x,i)=>norm(x)||norm(up[i])); for(let i=(rows[hr]||[]).length;i<up.length;i++) labels[i]=norm(up[i]);
+  const used=new Set();
+  const find=rx=>{ for(const r of (Array.isArray(rx)?rx:[rx])){ const i=labels.findIndex((l,k)=>!used.has(k)&&l&&r.test(l)); if(i>=0){ used.add(i); return i } } return -1 };
+  const codeCol=find(HEADER_RX[1]), nameCol=find(HEADER_RX[2]);
+  const cm={}; PREV_COLS.forEach(c=>{ cm[c]=find(HEADER_RX[c]) });
+  if(cm[30]<0&&cm[34]<0) throw new Error('File e "Total Payable" ba "Net Payable" column paoa jay nai.');
+  const map=new Map(), missing=PREV_COLS.filter(c=>cm[c]<0).map(c=>COLS[c][0]);
+  for(let r=hr+1;r<rows.length;r++){
+    const row=rows[r]||[]; const code=String(row[codeCol]==null?'':row[codeCol]).trim();
+    if(!code||!/^[A-Za-z]+-\d+$/.test(code)) continue;
+    const e={name:nameCol>=0?String(row[nameCol]==null?'':row[nameCol]).trim():''};
+    PREV_COLS.forEach(c=>{ if(cm[c]<0) return; const raw=row[cm[c]]; const v=typeof raw==='number'?raw:parseFloat(String(raw==null?'':raw).replace(/[,\s৳]/g,'')); e[c]=isNaN(v)?0:v });
+    map.set(code.toLowerCase(),e);
+  }
+  if(!map.size) throw new Error('File e kono employee row paoa jay nai.');
+  return {map,missing};
+}
+function showPrevInfo(){
+  const st=$('#prevStatus'), cl=$('#btnClearPrev'); if(!st) return;
+  if(!PREV){ st.textContent='Previous month comparison: ager masher file upload kora hoy nai.'; st.className='inputs-status'; cl.classList.add('hidden'); return }
+  cl.classList.toggle('hidden',!!PREV.auto&&false);
+  const m=ALL.filter(r=>PREV.map.has(String(r[1]).trim().toLowerCase())).length;
+  st.className='inputs-status ok'; st.textContent=`Previous month (${prevLabel()}): ${PREV.name} · ${m}/${ALL.length} employee mile geche · ${PREV.at}`+(PREV.missing&&PREV.missing.length?` · File e paoa jay nai: ${PREV.missing.join(', ')}`:'');
+}
+function cmpCells(r){   // [class, text] for the 2 comparison columns
+  const c=r._cmp; if(!c) return [['num',''],['reason','']];
+  return [['num',c.prevN==null?'-':fmtN(c.prevN)],['reason',c.reason]];
+}
 function loadManual(){ try{ MANUAL=JSON.parse(localStorage.getItem(manKey())||'{}')||{} }catch(e){ MANUAL={} } }
 function saveManual(){ try{ if(manualCount()) localStorage.setItem(manKey(),JSON.stringify(MANUAL)); else localStorage.removeItem(manKey()) }catch(e){} touchSaved() }
 /* ---- Auto-save: month, Adjustment File, Adjust state, 'sheet generated' and hand-typed cells survive a browser refresh ---- */
@@ -534,8 +621,9 @@ let RESTORE_GEN=false;
 function saveWork(){
   try{
     const o={month:($('#salMonth')||{}).value||'',generated:!!GENERATED,adjusted:!!ADJUSTED,savedAt:Date.now(),
+      prev:(PREV&&!PREV.auto)?{name:PREV.name,at:PREV.at,missing:PREV.missing||[],entries:[...PREV.map.entries()]}:null,
       inputs:INPUTS?{name:INPUTS.name,at:INPUTS.at,warn:INPUTS.warn||[],dupes:INPUTS.dupes||[],missingCols:INPUTS.missingCols||[],entries:[...INPUTS.map.entries()].map(([k,a])=>({k,a:[...a],tdsSet:!!a.tdsSet,code:a.code}))}:null};
-    if(!INPUTS&&!GENERATED) localStorage.removeItem(WORK_KEY); else localStorage.setItem(WORK_KEY,JSON.stringify(o));
+    if(!INPUTS&&!GENERATED&&!(PREV&&!PREV.auto)) localStorage.removeItem(WORK_KEY); else localStorage.setItem(WORK_KEY,JSON.stringify(o));
   }catch(e){}
   touchSaved();
 }
@@ -554,12 +642,13 @@ function restoreWork(){
       INPUTS={name:o.inputs.name,at:o.inputs.at,map,warn:o.inputs.warn||[],dupes:o.inputs.dupes||[],missingCols:o.inputs.missingCols||[]};
       ADJUSTED=!!o.adjusted;
     }
+    if(o.prev) PREV={auto:false,name:o.prev.name,at:o.prev.at,missing:o.prev.missing||[],map:new Map(o.prev.entries)};
     RESTORE_GEN=!!o.generated;
   }catch(e){}
 }
 function clearSaved(){
   try{ const del=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k===WORK_KEY||/^wegro_manual_/.test(k)) del.push(k) } del.forEach(k=>localStorage.removeItem(k)) }catch(e){}
-  MANUAL={}; INPUTS=null; ADJUSTED=false; RESTORE_GEN=false;
+  MANUAL={}; INPUTS=null; ADJUSTED=false; RESTORE_GEN=false; PREV=null; ensurePrev(); showPrevInfo();
   if(ALL.length){ const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm)); showInputInfo(); hideSalary('Saved data muche geche.') } else showInputInfo();
   try{ localStorage.removeItem(WORK_KEY) }catch(e){}
   touchSaved();
@@ -594,6 +683,7 @@ function recalc(a,sm){
   a[28]=(a[14]/T)*W;                                      // Absent deduction
   a[30]=a[24]+(num(a[25])+num(a[26])+num(a[27]))-(a[28]+num(a[29]));
   a[34]=a[30]-(num(a[31])+num(a[32])+num(a[33]));
+  a._cmp=cmpRow(a);
 }
 function buildModel(rows){
   const {map,hr,found,info,heads,missing}=mapColumns(rows);
@@ -679,6 +769,7 @@ function showGenState(note){
 }
 function generateSalary(quiet){
   if(!ALL.length) return;
+  ensurePrev(); showPrevInfo();
   loadManual();
   Object.keys(colFilters).forEach(k=>delete colFilters[k]);
   const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm));     // fresh calculation
@@ -692,6 +783,7 @@ $('#btnGenerate').onclick=()=>generateSalary();
 $('#btnHide').onclick=()=>hideSalary();
 let RAW=null;
 function ingest(){
+  ensurePrev();
   $('#banner').innerHTML='';
   ALL=buildModel(RAW);
   { const sm=salaryMonth(); const iv=buildInterns(INTERN_RAW,sm,ALL); ALL=[...ALL,...iv]; ALL.forEach((a,i)=>{ a[0]=i+1; a._sheet[0]=i+1 }) }
@@ -779,6 +871,7 @@ function footHtml(rows){
     if(i===0){ f+=`<td colspan="3" class="sticky c0" style="min-width:346px;max-width:346px">Total (${rows.length})</td>`; skip=2; continue }
     f+= TOTAL_COLS.includes(i) ? `<td class="num">${fmtMoney(sumCol(rows,i))}</td>` : '<td></td>';
   }
+  if(PREV){ const sm=k=>rows.reduce((t,r)=>t+(r._cmp&&r._cmp[k]!=null?r._cmp[k]:0),0); const sv=v=>(v>0.5?'+':'')+fmtN(v); f+=`<td class="num">${fmtN(sm('prevN'))}</td><td></td>` }
   return f+'</tr>';
 }
 function render(){
@@ -796,8 +889,11 @@ function render(){
       h+=`<th colspan="3" class="gfrozen">${esc(x.g)}</th><th colspan="${x.n-3}"></th>`;
     } else h+=`<th colspan="${x.n}" class="${GKEY[x.i]?'g-'+GKEY[x.i]:''}"><span class="glabel">${esc(x.g)}</span></th>`;
   });
+  const XC=PREV?[`${prevLabel()} Final Payable`,'Change Reason']:[];
+  if(XC.length) h+=`<th colspan="2" class="g-cmp"><span class="glabel">Comparison with ${esc(prevLabel())}</span></th>`;
   h+='</tr><tr class="h">';
   COLS.forEach(([l],i)=>{ h+=`<th class="${(i<3?'sticky c'+i:'')+(GKEY[i]?' h-'+GKEY[i]:'')}"><div class="hcell"><span>${esc(l)}</span><button type="button" class="fbtn${colFilters[i]?' on':''}" data-c="${i}" aria-label="Filter: ${esc(l)}" aria-haspopup="true" title="Filter">${colFilters[i]?'&#9660;':'&#9662;'}</button></div></th>` });
+  XC.forEach(l=>{ h+=`<th class="h-cmp"><div class="hcell"><span>${esc(l)}</span></div></th>` });
   h+='</tr></thead>';
 
   /* body */
@@ -822,6 +918,7 @@ function render(){
       else txt=esc(v);
       b+=`<td class="${cls.join(' ')}" data-c="${i}">${txt}</td>`;
     });
+    if(PREV) cmpCells(r).forEach(([k,t],j)=>{ b+=`<td class="${k}" data-c="x${j}">${esc(t)}</td>` });
     b+='</tr>';
   });
   b+='</tbody>';
@@ -834,7 +931,8 @@ function render(){
   const gh=document.querySelector('#tbl thead tr.g'); if(gh) $('#tbl').style.setProperty('--g-h',gh.offsetHeight+'px');
 }
 function refreshRow(tr,r){
-  tr.querySelectorAll('td[data-c]').forEach(td=>{ const c=+td.dataset.c; if(!EDIT_COLS.includes(c)) if(COLS[c][1]==='money') td.textContent=fmtMoney(num(r[c])); else if(COLS[c][1]==='int') td.textContent=r[c]==null?'':String(r[c]) });
+  if(PREV) cmpCells(r).forEach(([k,t],j)=>{ const td=tr.querySelector(`td[data-c="x${j}"]`); if(td){ td.className=k; td.textContent=t } });
+  tr.querySelectorAll('td[data-c]').forEach(td=>{ const c=+td.dataset.c; if(isNaN(c)||EDIT_COLS.includes(c)) return; if(COLS[c][1]==='money') td.textContent=fmtMoney(num(r[c])); else if(COLS[c][1]==='int') td.textContent=r[c]==null?'':String(r[c]) });
 }
 $('#tbl').addEventListener('change',e=>{
   const inp=e.target.closest('input.cellin'); if(!inp) return;
@@ -981,6 +1079,7 @@ function runChecks(){
   });
   ALL.filter(r=>r._tds==='file').forEach(r=>L.push(`${r[1]} ${r[2]}: TDS Adjustment File theke ${fmtMoney(r[31])} (auto hisab ${fmtMoney(r._tdsAuto)})`));
   if(META.internInfo){ L.push(`Intern tab: ${META.internInfo.n} jon notun + ${META.internInfo.already.length} jon age-i HQ tab e chilo (double hoy nai). Intern rule: Bank = Paid by Cheque, TDS = 0`); META.internInfo.warn.forEach(w=>L.push(w)) }
+  if(PREV){ const cur=new Set(ALL.map(r=>String(r[1]).trim().toLowerCase())); const gone=[...PREV.map.entries()].filter(([k])=>!cur.has(k)); if(gone.length) L.push(`${prevLabel()} e chilo kintu ei month e nei (${gone.length} jon): ${gone.slice(0,15).map(([k,v])=>k.toUpperCase()+(v.name?' '+v.name:'')).join('; ')}${gone.length>15?' ...':''}`) }
   if(META.noAccount.length) L.push(`Account number nei (${META.noAccount.length} jon): ${META.noAccount.map(a=>a[1]+' '+a[2]).join('; ')}`);
   const sm=salaryMonth();
   if(sm) ALL.forEach(r=>{
@@ -1009,7 +1108,8 @@ async function exportXlsx(){
   if(!hasAdj()){                                           // allowed, but warn clearly
     if(!confirm('ALERT ! Salary te kono adjustment kora hoy ni .Want to Download ?')) return;
   }
-  const rows=resignedLast(ALL); if(!rows.length){ alert('Export korar moto row nei.'); return }   // final sheet = all employees, no filter
+  const rows=resignedLast(ALL); if(!rows.length){ alert('Export korar moto row nei.'); return }
+  saveSnapshot(rows);                                      // next month's comparison can use this automatically   // final sheet = all employees, no filter
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet(META.sheetName||"Salary",{views:[{state:'frozen',xSplit:3,ySplit:4}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:8}});
   const L=colLetter, thin={style:'thin',color:{argb:'FFBFC7BC'}};
@@ -1037,6 +1137,11 @@ async function exportXlsx(){
     cell.font={bold:true}; cell.border=border; cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
   }
   ws.getRow(4).height=48;
+  const XL=PREV?[`${prevLabel()} Final Payable`,'Change Reason']:[];
+  XL.forEach((l,j)=>{ const c3=ws.getCell(3,NCOL+1+j), c4=ws.getCell(4,NCOL+1+j);
+    c3.value=j===0?`Comparison with ${prevLabel()}`:null; c4.value=l;
+    [[c3,'FFDCCBF2'],[c4,'FFEFE7FA']].forEach(([c,col])=>{ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:col}}; c.font={bold:true}; c.border=border; c.alignment={horizontal:'center',vertical:'middle',wrapText:true} }) });
+  if(XL.length) ws.mergeCells(3,NCOL+1,3,NCOL+XL.length);
 
   const first=5, last=first+rows.length-1;
   rows.forEach((d,k)=>{
@@ -1058,17 +1163,23 @@ async function exportXlsx(){
       c.border=border;
       if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} }
     });
+    if(PREV&&d._cmp){ const q=d._cmp;
+      [q.prevN==null?'-':q.prevN,q.reason].forEach((v,j)=>{ const c=row.getCell(NCOL+1+j); c.value=v; c.border=border; if(j===0){ c.numFmt='#,##0'; c.alignment={horizontal:'right'} } else c.alignment={wrapText:true,vertical:'top'};
+        if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} } });
+    }
   });
 
   /* total row */
   const tr=last+1; ws.getCell(tr,1).value='Total Salary'; ws.mergeCells(tr,1,tr,7);
   for(let c=1;c<=NCOL;c++){ const cell=ws.getCell(tr,c); cell.font={bold:true}; cell.border=border; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}};
     if(TOTAL_COLS.includes(c-1)){ cell.value={formula:`SUBTOTAL(9,${L(c-1)}${first}:${L(c-1)}${last})`,result:sumCol(rows,c-1)}; cell.numFmt='#,##0' } }
+  XL.forEach((l,j)=>{ const cell=ws.getCell(tr,NCOL+1+j); cell.font={bold:true}; cell.border=border; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}};
+    if(j===0){ cell.value={formula:`SUBTOTAL(9,${L(NCOL)}${first}:${L(NCOL)}${last})`,result:rows.reduce((t,x)=>t+(x._cmp&&x._cmp.prevN!=null?x._cmp.prevN:0),0)}; cell.numFmt='#,##0' } });
   ws.getCell(tr+2,1).value='Prepared By-'; ws.getCell(tr+2,7).value='Checked By-'; ws.getCell(tr+2,10).value='Approved By-';
 
   /* widths */
-  const W={0:6,1:10,2:30,3:13,4:10,5:13,6:42,7:28,8:11,9:20,10:22,11:22,12:12,13:11,35:40};
-  for(let i=0;i<NCOL;i++) ws.getColumn(i+1).width = W[i] || 13;
+  const W={0:6,1:10,2:30,3:13,4:10,5:13,6:42,7:28,8:11,9:20,10:22,11:22,12:12,13:11,35:40,[NCOL+1]:70};
+  for(let i=0;i<NCOL+XL.length;i++) ws.getColumn(i+1).width = W[i] || 13;
 
   /* ---- 2nd tab: list of the employees in this salary sheet ---- */
   {
@@ -1231,6 +1342,20 @@ async function handleUpload(file){
 $('#fileIn').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) handleUpload(f); e.target.value=''; });
 $('#lblUpload').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); $('#fileIn').click() } });
 $('#btnClearIn').onclick=()=>{ INPUTS=null; ADJUSTED=false; if(ALL.length) applyInputs(); else showInputInfo(); saveWork(); };
+async function handlePrevUpload(file){
+  try{
+    const isCsv=/\.csv$/i.test(file.name);
+    if(!isCsv && !/\.xlsx$/i.test(file.name)) throw new Error('Shudhu .xlsx ba .csv file support kore.');
+    const rows=isCsv?readCsv(await file.text()):await readXlsx(await file.arrayBuffer());
+    const parsed=parsePrevRows(rows);
+    PREV={auto:false,name:file.name,at:new Date().toLocaleTimeString(),...parsed};
+    if(ALL.length){ const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm)); if(GENERATED){ render(); runChecks() } }
+    showPrevInfo(); saveWork();
+  }catch(e){ $('#prevStatus').className='inputs-status'; $('#prevStatus').innerHTML=`<span style="color:var(--bad)"><b>Upload hoy nai:</b> ${esc(e.message)}</span>` }
+}
+$('#filePrev').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) handlePrevUpload(f); e.target.value=''; });
+$('#lblPrev').addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); $('#filePrev').click() } });
+$('#btnClearPrev').onclick=()=>{ PREV=null; ensurePrev(); if(ALL.length){ const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm)); if(GENERATED){ render(); runChecks() } } showPrevInfo(); saveWork() };
 $('#btnClearSaved').onclick=()=>{ if(confirm('Saved sob kaj (hate lekha entry, Adjustment File) muche felbo? Eta ar phire pawa jabe na.')) clearSaved() };
 $('#btnAdjust').onclick=()=>{ if(!INPUTS||!ALL.length) return; ADJUSTED=true; generateSalary(); showInputInfo(); saveWork() };
 $('#btnTemplate').onclick=()=>{
