@@ -190,7 +190,7 @@ details.map{margin-top:10px}
 <main class="wrap hidden" id="app">
   <header class="top">
     <div>
-      <div class="seg" role="group" aria-label="Salary section"><button type="button" id="secHq" data-sec="hq" aria-pressed="false">1. HQ and Intern</button><button type="button" id="secField" data-sec="field" aria-pressed="false">2. Field</button></div>
+      <div class="seg" role="group" aria-label="Salary section"><button type="button" id="secHq" data-sec="hq" aria-pressed="false">1. HQ and Intern</button><button type="button" id="secField" data-sec="field" aria-pressed="false">2. Field</button><button type="button" id="secInput" data-sec="input" aria-pressed="false">3. Input Business</button></div>
       <h1 id="company">Salary Sheet</h1>
       <div class="sub" id="title"></div>
       <div class="sub" id="status"></div>
@@ -271,10 +271,13 @@ details.map{margin-top:10px}
 /* ================= CONFIG ================= */
 /* Two completely separate salary sections: 'hq' (HQ + Intern tabs) and 'field' (Field tab).
    Switching reloads the page, so nothing in memory is shared; every saved item uses its own storage key. */
-const SECTION=(()=>{ let s=null; try{ const h=(location.hash||'').toLowerCase(); if(h==='#field'||h==='#hq') s=h.slice(1); else s=localStorage.getItem('wegro_section') }catch(e){} return s==='field'?'field':'hq' })();
-const IS_F=SECTION==='field';
+const SECTION=(()=>{ let s=null; try{ const h=(location.hash||'').toLowerCase(); if(h==='#field'||h==='#hq'||h==='#input') s=h.slice(1); else s=localStorage.getItem('wegro_section') }catch(e){} return (s==='field'||s==='input')?s:'hq' })();
+const IS_F=SECTION!=='hq';                      // Field format (TA/DA + Mobile Bill) is used by 'field' and 'input'
+const IS_I=SECTION==='input';                   // Input Business = Field tab rows whose Department is 'Input Business'
+const INPUT_DEPT_RX=/^\s*input\s*business\s*$/i;
 try{ localStorage.setItem('wegro_section',SECTION) }catch(e){}
-const SEC=IS_F?{label:'Field Salary Sheet',gid:'1169921246',work:'wegro_field_work_v1',man:'wegro_field_manual_',snap:'wegro_field_snap_'}
+const SEC=IS_I?{label:'Input Business Salary Sheet',sub:'Input Business',file:'Input_Business',gid:'1169921246',work:'wegro_input_work_v1',man:'wegro_input_manual_',snap:'wegro_input_snap_'}
+      :IS_F?{label:'Field Salary Sheet',sub:'Field Operations',file:'Field',gid:'1169921246',work:'wegro_field_work_v1',man:'wegro_field_manual_',snap:'wegro_field_snap_'}
               :{label:'HQ Salary Sheet',gid:'0',work:'wegro_work_v1',man:'wegro_manual_',snap:'wegro_snap_'};
 const CONFIG = {
   SHEET_ID: '1B_Dyh8NdpALA1er9qcsmn_pp2aG-c6tLk2WikIdn_3s',
@@ -480,7 +483,7 @@ function mapColumns(rows){
   return {map,hr,found,info,heads,missing:ESSENTIAL.filter(k=>map[k]<0)};
 }
 const SOURCE_COLS=IS_F?[1,2,3,4,5,6,7,8,9,10,11,12,18,37,39,45]:[1,2,3,4,5,6,7,8,9,10,12,13,18,19];       // columns pulled from the Google Sheet
-const OVR_KEY='salaryMapOverrides:'+CONFIG.SHEET_ID+':'+CONFIG.GID;
+const OVR_KEY='salaryMapOverrides:'+CONFIG.SHEET_ID+':'+CONFIG.GID+(IS_I?':input':'');
 function loadOverrides(){ try{ return JSON.parse(localStorage.getItem(OVR_KEY)||'{}') }catch(e){ return {} } }
 function saveOverrides(o){ try{ localStorage.setItem(OVR_KEY,JSON.stringify(o)) }catch(e){} }
 /* ================= Intern tab (second tab of the same Google Sheet) =================
@@ -780,6 +783,7 @@ function buildModel(rows){
       });
       if(!IS_F) a[11]='Tejgaon Branch';           // HQ: Branch is always Tejgaon Branch (Field: Branch Name column of the Field tab)
       [35,46,47].forEach(k=>{ if(k<NCOL) a[k]='' });   // Remarks / Status are hand inputs (never pulled from the sheet)
+      if(IS_F && INPUT_DEPT_RX.test(String(a[7]==null?'':a[7])) !== IS_I) return;   // Field tab: 'Input Business' department belongs only to the Input Business section
       if(CONFIG.EXCLUDE_IDS.map(x=>x.toLowerCase()).includes(String(a[1]).trim().toLowerCase())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Manually excluded']); return }
       if(NOT_JOINED_RX.test(String(a[4]==null?'':a[4]).trim())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Status: '+String(a[4]).trim()+' (salary te ashbe na)']); return }   // never in the salary sheet
       a._row=ri+1; allA.push(a);
@@ -1076,7 +1080,7 @@ function setMonthLabels(sm){
   if(IS_F){
     COLS[18][0]=`${mon.slice(0,3)}' ${yy} Gross Salary`;
     COLS[44][0]=COLS[44][2]=`Net ${mon}'${yy} Payable Salary`;
-    META.sheetName=`${mon.slice(0,3)}' ${yy} Field Salary`;
+    META.sheetName=`${mon.slice(0,3)}' ${yy} ${IS_I?'Input Business':'Field'} Salary`;
     return;
   }
   COLS[30][0]=COLS[30][2]=`${mon}'${yy} Total Payable`;
@@ -1308,7 +1312,7 @@ async function exportFieldXlsx(rows){
   const solid=argb=>({type:'pattern',pattern:'solid',fgColor:{argb}});
   const COLORS={add:['FFBFE8C6','FFE3F5E6'],ded:['FFF6C4BD','FFFCE6E3'],pay:['FFBCD9F5','FFE2EEFA'],stat:['FFFBD88F','FFFDEFCF'],net:['FF8FD3A0','FFCDEED6'],ta:['FFB9E4E4','FFDCF2F2']};
 
-  ws.getCell('A1').value=`${META.company} \nSalary Sheet (Field Operations)\nFor the month of ${sm?MONTHS[sm.m]+'-'+sm.y:''}`;
+  ws.getCell('A1').value=`${META.company} \nSalary Sheet (${SEC.sub})\nFor the month of ${sm?MONTHS[sm.m]+'-'+sm.y:''}`;
   ws.getCell('A1').font={bold:true,size:14}; ws.getCell('A1').alignment={wrapText:true,vertical:'middle',horizontal:'left'}; ws.mergeCells('A1:G1'); ws.getRow(1).height=61;
 
   for(let r=2;r<=3;r++) for(let c=1;c<=NC;c++){
@@ -1375,7 +1379,7 @@ async function exportFieldXlsx(rows){
   addEmployeeList(wb,rows,border,HEAD);
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const name=(META.title||'Field_Salary_Sheet').replace(/[^\w\-]+/g,'_').replace(/^Field_Salary_Sheet/,'Field_Final_Salary_Sheet')+'.xlsx';
+  const name=(META.title||'Field_Salary_Sheet').replace(/[^\w\-]+/g,'_').replace(/^(Field|Input_Business)_Salary_Sheet/,'$1_Final_Salary_Sheet')+'.xlsx';
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
 }
@@ -1541,7 +1545,7 @@ document.querySelectorAll('.seg button').forEach(b=>{
   b.setAttribute('aria-pressed',b.dataset.sec===SECTION);
   b.onclick=()=>{ if(b.dataset.sec===SECTION) return; try{ saveWork() }catch(e){} location.hash='#'+b.dataset.sec; location.reload() };
 });
-if(IS_F) $('#inHint').innerHTML='Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, Loan/Advance, Other Adjustment, <b>Additions</b> (TA-DA), <b>Deduction (Dept. Adjustment)</b>, <b>Staff Code</b> diye mele). <b>Income Tax (TDS)</b> auto hisab hoy (Gross er upor; TA/DA ar Mobile Bill TDS er hisabe ashe na). Step 2: <b>Adjust from Salary</b> press koro. Step 3: <b>Download Final Salary Sheet</b>. Field section er shob data HQ theke alada.';
+if(IS_F) $('#inHint').innerHTML='Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, Loan/Advance, Other Adjustment, <b>Additions</b> (TA-DA), <b>Deduction (Dept. Adjustment)</b>, <b>Staff Code</b> diye mele). <b>Income Tax (TDS)</b> auto hisab hoy (Gross er upor; TA/DA ar Mobile Bill TDS er hisabe ashe na). Step 2: <b>Adjust from Salary</b> press koro. Step 3: <b>Download Final Salary Sheet</b>. Ei section er shob data (saved kaj, Adjustment File, comparison) onno section theke alada.';
 </script>
 </body>
 </html>
