@@ -282,7 +282,7 @@ const SEC=IS_I?{label:'Input Business Salary Sheet',sub:'Input Business',file:'I
 const CONFIG = {
   SHEET_ID: '1B_Dyh8NdpALA1er9qcsmn_pp2aG-c6tLk2WikIdn_3s',
   GID: SEC.gid,                   // gid of the Google Sheet tab (HQ: 0, Field: 1169921246)
-  EXCLUDE_IDS: IS_F?[]:['HQ-094'],        // Staff Codes kept out of the salary sheet (HQ-094 Rashed Mujib Noman)
+  EXCLUDE_IDS: SECTION==='field'?['FO-0109']:IS_I?[]:['HQ-094'],        // Staff Codes kept out of the salary sheet (HQ-094 Rashed Mujib Noman)
   // SHA-256 of the password. Change it: see README.md
   PASSWORD_HASH: '615ffc50fec7b87c132f963f89b3004e35e08113b354af8766b9f95459aa0971'
 };
@@ -867,6 +867,7 @@ function ingest(){
   if(META.sciAcct.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Account number scientific format e (3.1E+12) ache, nibo na:</b> ${META.sciAcct.map(esc).join(', ')}. Google Sheet e oi cell er Format &gt; Number &gt; Plain text kore abar number boshao.</div>`);
   if(META.bankConflicts.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Bank details mile nai:</b> ei Employee ID gulo Google Sheet e ekadhik row te alada account/bank niye ache, tai tader account <b>khali</b> rakha hoyeche: ${META.bankConflicts.map(esc).join(', ')}. Sheet thik kore Sync Data press korun.</div>`);
   if(META.dupAccounts.length) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Ek-i account number ekadhik employee er:</b> ${META.dupAccounts.map(([a,ids])=>esc(a)+' → '+ids.map(esc).join(' &amp; ')).join('; ')}. Ei employee der account <b>khali</b> rakha hoyeche; salary dewar age thik korun.</div>`);
+  if(SECTION==='field'){ const ex=(META.excluded||[]).filter(x=>x[1]==='Manually excluded').map(x=>x[0]); CONFIG.EXCLUDE_IDS.forEach(id=>{ const r=ex.find(a=>String(a[1]).trim().toLowerCase()===id.toLowerCase()); $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>${esc(id)}${r?' '+esc(r[2]):''}</b> ei Field salary sheet e <b>add kora hoy ni</b> (manually bad deya hoyeche). Porer instruction na ashe porjonto salary sheet e ashbe na.</div>`) }) }
   renderMapping(); showInputInfo();
   GENERATED=false; $('#tbl').innerHTML=''; $('#cards').innerHTML=''; showGenState('Data sync hoyeche.');
 }
