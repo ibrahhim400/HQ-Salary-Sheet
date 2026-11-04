@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<title>HQ Salary Sheet</title>
+<title>WeGro Salary Sheet</title>
 <style>
 :root{
-  --g-add:#bfe8c6; --h-add:#e3f5e6; --g-ded:#f6c4bd; --h-ded:#fce6e3; --g-pay:#bcd9f5; --h-pay:#e2eefa; --g-stat:#fbd88f; --h-stat:#fdefcf; --g-net:#8fd3a0; --h-net:#cdeed6; --g-cmp:#dccbf2; --h-cmp:#efe7fa;
+  --g-add:#bfe8c6; --h-add:#e3f5e6; --g-ded:#f6c4bd; --h-ded:#fce6e3; --g-pay:#bcd9f5; --h-pay:#e2eefa; --g-stat:#fbd88f; --h-stat:#fdefcf; --g-net:#8fd3a0; --h-net:#cdeed6; --g-cmp:#dccbf2; --h-cmp:#efe7fa; --g-ta:#b9e4e4; --h-ta:#dcf2f2;
   --res-bg:#fde8e8; --res-ink:#9b1c1c; --res-hover:#fbd5d5;
   --bg:#f6f7f5; --card:#fff; --ink:#1d2420; --muted:#667068; --line:#dfe4de;
   --accent:#2f6b3f; --accent-ink:#fff; --head:#eff6ea; --group:#dfeadb;
@@ -17,7 +17,7 @@
   :root:not([data-theme="light"]){
     --bg:#121613; --card:#1a201b; --ink:#e8ede9; --muted:#97a39a; --line:#2c352e;
     --accent:#6fbf86; --accent-ink:#0e1a12; --head:#223025; --group:#2a3b2d;
-    --g-add:#2c4d34; --h-add:#233b29; --g-ded:#5a2c28; --h-ded:#40221f; --g-pay:#274a6d; --h-pay:#1f3850; --g-stat:#5d4a1a; --h-stat:#43360f; --g-net:#2f6a43; --h-net:#25503a; --g-cmp:#46326b; --h-cmp:#372850;
+    --g-add:#2c4d34; --h-add:#233b29; --g-ded:#5a2c28; --h-ded:#40221f; --g-pay:#274a6d; --h-pay:#1f3850; --g-stat:#5d4a1a; --h-stat:#43360f; --g-net:#2f6a43; --h-net:#25503a; --g-cmp:#46326b; --h-cmp:#372850; --g-ta:#1f4a4a; --h-ta:#193838;
     --res-bg:#3b1f1f; --res-ink:#f2a3a3; --res-hover:#4a2727;
     --warn:#f0a35e; --warn-bg:#33261a; --bad:#f2928c; --bad-bg:#3a1f1d; --ok-bg:#1f3325; --hover:#202a22;
   }
@@ -68,6 +68,12 @@ thead tr.h th.h-net{background:var(--h-net)}
 thead tr.g th.g-net,thead tr.g th.g-pay{font-weight:700}
 thead tr.g th.g-cmp{background:var(--g-cmp);font-weight:700}
 thead tr.h th.h-cmp{background:var(--h-cmp)}
+thead tr.g th.g-ta{background:var(--g-ta);font-weight:700}
+thead tr.h th.h-ta{background:var(--h-ta)}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card);margin-bottom:10px}
+.seg button{border:0;background:none;padding:9px 18px;cursor:pointer;font-weight:600}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink)}
 td.pos{color:#1a7f37;font-weight:650}
 td.neg{color:#b42318;font-weight:650}
 td.reason{white-space:normal;min-width:340px;max-width:420px;font-size:12.5px}
@@ -161,7 +167,7 @@ details.map{margin-top:10px}
   .inputs,#inbanner{display:none!important}
   @page{size:A3 landscape;margin:8mm}
   body{background:#fff;color:#000;font-size:9px}
-  .chip,.genpanel,#mapBox,.monthpick,.actions,.tools,.cards .s,#gate,details.checks,.banner{display:none!important}
+  .seg,.chip,.genpanel,#mapBox,.monthpick,.actions,.tools,.cards .s,#gate,details.checks,.banner{display:none!important}
   .tablebox{max-height:none;overflow:visible;border:0}
   th,td{padding:3px 5px;position:static!important;box-shadow:none!important;background:#fff!important}
   thead th{background:#eee!important}
@@ -173,7 +179,7 @@ details.map{margin-top:10px}
 
 <div id="gate">
   <form class="gate-box" id="loginForm" autocomplete="off">
-    <h1>HQ Salary Sheet</h1>
+    <h1>WeGro Salary Sheet</h1>
     <p>Password diye login korun.</p>
     <input type="password" id="pw" placeholder="Password" autofocus aria-label="Password">
     <button class="btn primary" style="width:100%" type="submit">Login</button>
@@ -184,6 +190,7 @@ details.map{margin-top:10px}
 <main class="wrap hidden" id="app">
   <header class="top">
     <div>
+      <div class="seg" role="group" aria-label="Salary section"><button type="button" id="secHq" data-sec="hq" aria-pressed="false">1. HQ and Intern</button><button type="button" id="secField" data-sec="field" aria-pressed="false">2. Field</button></div>
       <h1 id="company">Salary Sheet</h1>
       <div class="sub" id="title"></div>
       <div class="sub" id="status"></div>
@@ -203,7 +210,7 @@ details.map{margin-top:10px}
   <section class="inputs" id="inputsPanel" aria-label="Salary inputs">
     <div>
       <b>Salary inputs upload</b>
-      <div class="hint">Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, Loan/Advance, Other Adjustment, <b>Staff Code</b> diye mele). <b>Income Tax (TDS)</b> auto hisab hoy; file e TDS dile shudhu oi employee er auto TDS bodle jay. Step 2: <b>Adjust from Salary</b> press koro, shob adjustment salary theke deduct/add hoye sheet e dekhabe. Step 3: <b>Download Final Salary Sheet</b>.</div>
+      <div class="hint" id="inHint">Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, Loan/Advance, Other Adjustment, <b>Staff Code</b> diye mele). <b>Income Tax (TDS)</b> auto hisab hoy; file e TDS dile shudhu oi employee er auto TDS bodle jay. Step 2: <b>Adjust from Salary</b> press koro, shob adjustment salary theke deduct/add hoye sheet e dekhabe. Step 3: <b>Download Final Salary Sheet</b>.</div>
     </div>
     <div class="inputs-actions">
       <button class="btn" id="btnTemplate" type="button">Download template</button>
@@ -262,16 +269,23 @@ details.map{margin-top:10px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js"></script>
 <script>
 /* ================= CONFIG ================= */
+/* Two completely separate salary sections: 'hq' (HQ + Intern tabs) and 'field' (Field tab).
+   Switching reloads the page, so nothing in memory is shared; every saved item uses its own storage key. */
+const SECTION=(()=>{ let s=null; try{ const h=(location.hash||'').toLowerCase(); if(h==='#field'||h==='#hq') s=h.slice(1); else s=localStorage.getItem('wegro_section') }catch(e){} return s==='field'?'field':'hq' })();
+const IS_F=SECTION==='field';
+try{ localStorage.setItem('wegro_section',SECTION) }catch(e){}
+const SEC=IS_F?{label:'Field Salary Sheet',gid:'1169921246',work:'wegro_field_work_v1',man:'wegro_field_manual_',snap:'wegro_field_snap_'}
+              :{label:'HQ Salary Sheet',gid:'0',work:'wegro_work_v1',man:'wegro_manual_',snap:'wegro_snap_'};
 const CONFIG = {
   SHEET_ID: '1B_Dyh8NdpALA1er9qcsmn_pp2aG-c6tLk2WikIdn_3s',
-  GID: '0',                       // gid of the Google Sheet tab (see ...&gid= in its URL)
-  EXCLUDE_IDS: ['HQ-094'],        // Staff Codes kept out of the salary sheet (HQ-094 Rashed Mujib Noman)
+  GID: SEC.gid,                   // gid of the Google Sheet tab (HQ: 0, Field: 1169921246)
+  EXCLUDE_IDS: IS_F?[]:['HQ-094'],        // Staff Codes kept out of the salary sheet (HQ-094 Rashed Mujib Noman)
   // SHA-256 of the password. Change it: see README.md
   PASSWORD_HASH: '615ffc50fec7b87c132f963f89b3004e35e08113b354af8766b9f95459aa0971'
 };
 
 /* Columns follow the sheet exactly: A=0 ... AJ=35 */
-const COLS = [
+const COLS_HQ = [
   ['SL.','int','Employee'],['Staff Code','text','Employee'],['Name','text','Employee'],['Date of Joining','date','Employee'],
   ['Status','status','Employee'],['Last Working Day','date','Employee'],['Designation','text','Employee'],['Department','text','Employee'],['Job Location','text','Employee'],
   ['Account / Card Number','text','Bank'],['Bank','text','Bank'],['Branch Name','text','Bank'],['Routing Number','text','Bank'],['Payroll Type','text','Bank'],
@@ -283,8 +297,31 @@ const COLS = [
   ['Income Tax (TDS)','money','Statutory & Other Adjustments'],['Personal Loan / Salary Advance','money','Statutory & Other Adjustments'],['Other Adjustment','money','Statutory & Other Adjustments'],
   ['Net Payable','money','Net Payable'],['Remarks','remark','Remarks']
 ];
-const TOTAL_COLS = [18,24,25,26,27,28,29,30,31,32,33,34];
+/* Field sheet = same columns 0..35 as HQ (same meaning) + extra columns 36..47. ORDER = the order they are shown / exported. */
+const COLS = IS_F ? (()=>{
+  const c=COLS_HQ.map(x=>x.slice());
+  c[30]=['Total Payable Salary','money','Total Payable Salary'];
+  c[34]=['Net Salary','money','Net Salary'];
+  c[35]=['Remarks from HR','remark','Remarks & Info'];
+  c[36]=['Job Location As Per OGRO','text','Employee'];
+  c[37]=['Allocated TA/DA','money','TA-DA & Mobile Bill'];
+  c[38]=['Applicable TA/DA','money','TA-DA & Mobile Bill'];
+  c[39]=['Mobile Bill','money','TA-DA & Mobile Bill'];
+  c[40]=['TA-DA Additions','money','TA-DA & Mobile Bill'];
+  c[41]=['Deduction for Absent / Unauthorised Leave','money','TA-DA & Mobile Bill'];
+  c[42]=['Deduction (Dept. Adjustment)','money','TA-DA & Mobile Bill'];
+  c[43]=['Net TA-DA & Mobile Bill','money','TA-DA & Mobile Bill'];
+  c[44]=['Net Payable Salary','money','Net Payable Salary'];
+  c[45]=['Official Number','text','Remarks & Info'];
+  c[46]=['Remarks from Operations','remark','Remarks & Info'];
+  c[47]=['Payment Status','text','Remarks & Info'];
+  return c;
+})() : COLS_HQ;
 const NCOL = COLS.length;
+const TOTAL_COLS = IS_F ? [18,24,25,26,27,28,29,30,31,32,33,34,37,38,39,40,41,42,43,44] : [18,24,25,26,27,28,29,30,31,32,33,34];
+const ORDER = IS_F ? [0,1,2,3,4,5,6,7,36,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,37,38,39,40,41,42,43,44,45,35,46,47] : COLS.map((_,i)=>i);
+const NETC = IS_F ? 44 : 34;                    // the final 'Net Payable' column
+const XL_LABEL = {40:'Additions',47:'Status'};  // Field Excel header text (as in the Field format file)
 
 /* ================= helpers ================= */
 const $ = s => document.querySelector(s);
@@ -373,7 +410,7 @@ function headerRowIndex(rows){
   const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
   for(let r=0;r<Math.min(rows.length,15);r++){
     const lab=(rows[r].c||[]).map((_,c)=>norm(gv(rows[r].c[c])));
-    if(lab.some(x=>HEADER_RX[1].test(x)) && lab.some(x=>/^name/.test(x))) return r;
+    if(lab.some(x=>HEADER_RX[1].test(x)) && lab.some(x=>NAME_RX.test(x))) return r;
   }
   return -1;
 }
@@ -395,13 +432,32 @@ const HEADER_RX=[
  [/^bank account (number|no\.?)$/,/^(bank )?(account|a\/c|acc)\.? ?(number|no\.?)$/,/^bank (account|a\/c)/],[/^bank name$/,/^bank$/,/^name of (the )?bank$/],null,[/^routing number$/,/^routing( no\.?)?$/,/routing/],/payroll/,/^basic/,/house rent/,/medical/,/conveyance/,[/^salary( 20\d\d)?$/,/^gross salary$/,/^gross$/,/^gross (pay|amount)/,/^(monthly )?salary$/],
  /month days/,/per day/,/applicable days/,/leave days/,/payable days/,/applicable salary/,
  /arrear/,/^bonus/,/^others$/,/^absent.*leave$/,/notice/,/total payable/,/income tax|tds/,/loan|advance/,/other adjustment/,/net payable/,/remarks/];
+const CODE_RX=/staff code|employee id|emp\.? id|staff id/;      // Staff Code header in files WE read back (Adjustment File, previous month file)
+const NAME_RX=IS_F?/^(employee )?name/:/^name/;
+if(IS_F){   // Field tab headers (matched by name, never by position)
+  HEADER_RX[1]=/new staff code/;
+  HEADER_RX[2]=/^(employee )?name/;
+  HEADER_RX[4]=[/^emp\w*\s*status$/,/^status$/];
+  HEADER_RX[8]=[/^covered area$/,/covered area/];
+  HEADER_RX[9]=[/hasanah.*(account|a\/c)/,/^bank account (number|no\.?)$/];
+  HEADER_RX[10]=[/^bank name$/];
+  HEADER_RX[11]=[/^branch name$/,/^branch$/];
+  HEADER_RX[18]=[/^update(d)? salary/,/gross salary/,/^salary( 20\d\d)?$/,/^gross$/];
+  HEADER_RX[34]=/^net salary$/;
+  HEADER_RX[37]=[/^ta\s*[\/&-]?\s*da$/,/allocated ta/];
+  HEADER_RX[39]=[/^mobile bill$/,/mobile/];
+  HEADER_RX[40]=/ta.?da additions?/;
+  HEADER_RX[42]=/dept.*adjust/;
+  HEADER_RX[44]=/^net .*payable/;
+  HEADER_RX[45]=/official (number|no)/;
+}
 function mapColumns(rows){
   const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
   const cell=(r,c)=>gv(rows[r]&&rows[r].c&&rows[r].c[c]);
   let hr=-1;
   for(let r=0;r<Math.min(rows.length,15)&&hr<0;r++){
     const lab=(rows[r].c||[]).map((_,c)=>norm(cell(r,c)));
-    if(lab.some(x=>HEADER_RX[1].test(x)) && lab.some(x=>/^name/.test(x))) hr=r;
+    if(lab.some(x=>HEADER_RX[1].test(x)) && lab.some(x=>NAME_RX.test(x))) hr=r;
   }
   const map=Array(NCOL).fill(-1);               // not found => blank (never guess by position)
   if(hr<0){ return {map,hr:-1,found:0,info:[],heads:[],missing:[1,2]} }
@@ -420,10 +476,10 @@ function mapColumns(rows){
   SOURCE_COLS.forEach(k=>{ if(OVR[k]!==undefined && OVR[k]<width) map[k]=OVR[k] });
   const info=SOURCE_COLS.map(k=>[k,map[k]]);
   const heads=raw.map((t,i)=>[i,t]).filter(x=>x[1]);
-  const ESSENTIAL=[1,2,3,4,6,7,9,10,18];
+  const ESSENTIAL=IS_F?[1,2,3,4,6,7,8,9,10,18,37,39]:[1,2,3,4,6,7,9,10,18];
   return {map,hr,found,info,heads,missing:ESSENTIAL.filter(k=>map[k]<0)};
 }
-const SOURCE_COLS=[1,2,3,4,5,6,7,8,9,10,12,13,18,19];       // columns pulled from the Google Sheet
+const SOURCE_COLS=IS_F?[1,2,3,4,5,6,7,8,9,10,11,12,18,37,39,45]:[1,2,3,4,5,6,7,8,9,10,12,13,18,19];       // columns pulled from the Google Sheet
 const OVR_KEY='salaryMapOverrides:'+CONFIG.SHEET_ID+':'+CONFIG.GID;
 function loadOverrides(){ try{ return JSON.parse(localStorage.getItem(OVR_KEY)||'{}') }catch(e){ return {} } }
 function saveOverrides(o){ try{ localStorage.setItem(OVR_KEY,JSON.stringify(o)) }catch(e){} }
@@ -531,20 +587,21 @@ function calcTds(gross,special,bonus,carAit){
   const annual=tax<=0?0:((tax-rebate)>=5000?(tax-rebate):5000);
   return Math.max(annual-carAit,0)/12;
 }
-const INPUT_COLS=[22,25,26,27,29,31,32,33];   // the 8 hand-input columns (TDS is automatic; a value in the file overrides it)
+const INPUT_COLS=IS_F?[22,25,26,27,29,31,32,33,40,42]:[22,25,26,27,29,31,32,33];   // the 8 hand-input columns (TDS is automatic; a value in the file overrides it)
 let INPUTS=null;                               // uploaded input sheet (kept in memory only)
 let ADJUSTED=false;
 /* Manual typing in the sheet: Absent Days, Arrear, Bonus, Others, Loan/Advance, Other Adjustment (kept per salary month in this tab only) */
-const EDIT_COLS=[22,25,26,27,29,32,33,35];   // 35 = Remarks (text)
+const EDIT_COLS=IS_F?[22,25,26,27,29,32,33,40,42,35,46,47]:[22,25,26,27,29,32,33,35];   // 35 = Remarks (text)
+const TEXT_COLS=IS_F?[35,46,47]:[35];
 let MANUAL={};
-function manKey(){ const sm=salaryMonth(); return 'wegro_manual_'+(sm?sm.y+'-'+sm.m:'x') }
+function manKey(){ const sm=salaryMonth(); return SEC.man+(sm?sm.y+'-'+sm.m:'x') }
 /* ================= Previous month comparison ================= */
-const PREV_COLS=[18,21,22,25,26,27,28,29,30,31,32,33,34];
-const CMP_PARTS=[[18,'Gross Salary','m'],[21,'Applicable Days','d'],[22,'Absent Days','d'],[25,'Salary Arrear','m'],[26,'Bonus','m'],[27,'Others','m'],[29,'Notice Period & Others','m'],[31,'Income Tax (TDS)','m'],[32,'Loan/Advance','m'],[33,'Other Adjustment','m']];
+const PREV_COLS=IS_F?[18,21,22,25,26,27,28,29,30,31,32,33,34,37,39,44]:[18,21,22,25,26,27,28,29,30,31,32,33,34];
+const CMP_PARTS=[[18,'Gross Salary','m'],[21,'Applicable Days','d'],[22,'Absent Days','d'],[25,'Salary Arrear','m'],[26,'Bonus','m'],[27,'Others','m'],[29,'Notice Period & Others','m'],[31,'Income Tax (TDS)','m'],[32,'Loan/Advance','m'],[33,'Other Adjustment','m'],...(IS_F?[[37,'Allocated TA/DA','m'],[39,'Mobile Bill','m']]:[])];
 let PREV=null;   // {name,at,auto,map:Map(code -> {name, <col>:value})}
 function prevMonthOf(sm){ return sm?{y:sm.m===0?sm.y-1:sm.y,m:sm.m===0?11:sm.m-1}:null }
 function prevLabel(){ const p=prevMonthOf(salaryMonth()); return p?MONTHS[p.m].slice(0,3)+"'"+String(p.y).slice(-2):'Prev' }
-function snapKey(y,m){ return 'wegro_snap_'+y+'-'+m }
+function snapKey(y,m){ return SEC.snap+y+'-'+m }
 function saveSnapshot(rows){
   const sm=salaryMonth(); if(!sm) return;
   try{ const o={savedAt:Date.now(),rows:{}}; rows.forEach(r=>{ const e={name:r[2]}; PREV_COLS.forEach(c=>{ e[c]=num(r[c]) }); o.rows[String(r[1]).trim().toLowerCase()]=e });
@@ -563,8 +620,8 @@ function cmpRow(a){
   if(!p){
     const sm0=salaryMonth(); let r='New Employee';
     if(sm0&&a[3] instanceof Date&&a[3].getFullYear()===sm0.y&&a[3].getMonth()===sm0.m&&a[3].getDate()>1) r+=` (New Joiner: joined ${fmtDate(a[3])}, salary for ${num(a[21])} days only)`;
-    return {isNew:true,prevT:null,prevN:null,dT:num(a[30]),dN:num(a[34]),reason:r} }
-  const prevT=num(p[30]), prevN=num(p[34]), dT=num(a[30])-prevT, dN=num(a[34])-prevN, parts=[];
+    return {isNew:true,prevT:null,prevN:null,dT:num(a[30]),dN:num(a[NETC]),reason:r} }
+  const prevT=num(p[30]), prevN=num(p[NETC]), dT=num(a[30])-prevT, dN=num(a[NETC])-prevN, parts=[];
   const sm=salaryMonth(), pm=prevMonthOf(sm), pDays=pm?new Date(pm.y,pm.m+1,0).getDate():0;
   CMP_PARTS.forEach(([c,lab,t])=>{
     if(p[c]===undefined) return;
@@ -582,15 +639,15 @@ function cmpRow(a){
 }
 function parsePrevRows(rows){
   const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
-  const hr=rows.findIndex(r=>(r||[]).some(x=>HEADER_RX[1].test(norm(x))));
+  const hr=rows.findIndex(r=>(r||[]).some(x=>CODE_RX.test(norm(x))));
   if(hr<0) throw new Error('Header row paoa jay nai. "Staff Code" / "Employee ID" column lagbe.');
   const up=hr>0?(rows[hr-1]||[]):[];                       // 'Total Payable' / 'Net Payable' sit in the group row above the header row
   const labels=(rows[hr]||[]).map((x,i)=>norm(x)||norm(up[i])); for(let i=(rows[hr]||[]).length;i<up.length;i++) labels[i]=norm(up[i]);
   const used=new Set();
   const find=rx=>{ for(const r of (Array.isArray(rx)?rx:[rx])){ const i=labels.findIndex((l,k)=>!used.has(k)&&l&&r.test(l)); if(i>=0){ used.add(i); return i } } return -1 };
-  const codeCol=find(HEADER_RX[1]), nameCol=find(HEADER_RX[2]);
+  const codeCol=find(CODE_RX), nameCol=find(HEADER_RX[2]);
   const cm={}; PREV_COLS.forEach(c=>{ cm[c]=find(HEADER_RX[c]) });
-  if(cm[30]<0&&cm[34]<0) throw new Error('File e "Total Payable" ba "Net Payable" column paoa jay nai.');
+  if(cm[30]<0&&cm[NETC]<0) throw new Error('File e "Total Payable" ba "Net Payable" column paoa jay nai.');
   const map=new Map(), missing=PREV_COLS.filter(c=>cm[c]<0).map(c=>COLS[c][0]);
   for(let r=hr+1;r<rows.length;r++){
     const row=rows[r]||[]; const code=String(row[codeCol]==null?'':row[codeCol]).trim();
@@ -616,7 +673,7 @@ function cmpCells(r){   // [class, text] for the 2 comparison columns
 function loadManual(){ try{ MANUAL=JSON.parse(localStorage.getItem(manKey())||'{}')||{} }catch(e){ MANUAL={} } }
 function saveManual(){ try{ if(manualCount()) localStorage.setItem(manKey(),JSON.stringify(MANUAL)); else localStorage.removeItem(manKey()) }catch(e){} touchSaved() }
 /* ---- Auto-save: month, Adjustment File, Adjust state, 'sheet generated' and hand-typed cells survive a browser refresh ---- */
-const WORK_KEY='wegro_work_v1';
+const WORK_KEY=SEC.work;
 let RESTORE_GEN=false;
 function saveWork(){
   try{
@@ -627,7 +684,7 @@ function saveWork(){
   }catch(e){}
   touchSaved();
 }
-function hasSaved(){ try{ if(localStorage.getItem(WORK_KEY)) return true; for(let i=0;i<localStorage.length;i++) if(/^wegro_manual_/.test(localStorage.key(i))) return true }catch(e){} return false }
+function hasSaved(){ try{ if(localStorage.getItem(WORK_KEY)) return true; for(let i=0;i<localStorage.length;i++) if(String(localStorage.key(i)).startsWith(SEC.man)) return true }catch(e){} return false }
 function touchSaved(){
   const on=hasSaved(), c=$('#saveChip'), b=$('#btnClearSaved'); if(!c||!b) return;
   c.classList.toggle('hidden',!on); b.classList.toggle('hidden',!on);
@@ -647,7 +704,7 @@ function restoreWork(){
   }catch(e){}
 }
 function clearSaved(){
-  try{ const del=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k===WORK_KEY||/^wegro_manual_/.test(k)) del.push(k) } del.forEach(k=>localStorage.removeItem(k)) }catch(e){}
+  try{ const del=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k===WORK_KEY||String(k).startsWith(SEC.man)) del.push(k) } del.forEach(k=>localStorage.removeItem(k)) }catch(e){}
   MANUAL={}; INPUTS=null; ADJUSTED=false; RESTORE_GEN=false; PREV=null; ensurePrev(); showPrevInfo();
   if(ALL.length){ const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm)); showInputInfo(); hideSalary('Saved data muche geche.') } else showInputInfo();
   try{ localStorage.removeItem(WORK_KEY) }catch(e){}
@@ -661,8 +718,9 @@ function recalc(a,sm){
   for(let c=0;c<NCOL;c++) a[c]=a._sheet[c];               // always start from the raw sheet values
   a._in=null;
   if(a._intern && !String(a[8]==null?'':a[8]).trim()) a[8]='HQ';                       // Intern: Job Location defaults to HQ
+  if(IS_F&&!String(a[36]==null?'':a[36]).trim()) a[36]=a[8];                         // Field: 'Job Location As Per OGRO' = Covered Area unless the sheet has its own
   if(!String(a[12]==null?'':a[12]).trim()) a[12]='-';                                  // Routing Number blank -> '-' (a value in the Google Sheet is kept as is)
-  { const bk=String(a[10]==null?'':a[10]).trim(); a[13]=(a._intern||/cheque|check/i.test(bk))?'Cheque':(!bk?'':(/prime\s*bank/i.test(bk)?'PBL':'Other')) }   // Payroll Type: Intern -> Cheque; Prime Bank Limited -> PBL; any other bank -> Other
+  { const bk=String(a[10]==null?'':a[10]).trim(); a[13]=(!IS_F&&(a._intern||/cheque|check/i.test(bk)))?'Cheque':(!bk?'':(/prime\s*bank/i.test(bk)?'PBL':'Other')) }   // Payroll Type: Intern -> Cheque; Prime Bank Limited -> PBL; any other bank -> Other
   INPUT_COLS.forEach(c=>{ a[c]=0 });                      // before adjustment: salary has no adjustments
   a._tds=null; a._tdsAuto=null;
   if(tdsApplies(sm)&&!a._intern){ a._tdsAuto=calcTds(num(a[18])); a[31]=a._tdsAuto; a._tds='auto' }   // Income Tax (TDS) is automatic
@@ -683,6 +741,13 @@ function recalc(a,sm){
   a[28]=(a[14]/T)*W;                                      // Absent deduction
   a[30]=a[24]+(num(a[25])+num(a[26])+num(a[27]))-(a[28]+num(a[29]));
   a[34]=a[30]-(num(a[31])+num(a[32])+num(a[33]));
+  if(IS_F){                                                // Field only: TA/DA + Mobile Bill (same rules as the Field format file)
+    const al=num(a[37]);
+    a[38]=(al/T)*num(a[21]);                               // Applicable TA/DA = Allocated / Month Days x Applicable Days
+    a[41]=(al/T)*W;                                        // Deduction for absent = Allocated / Month Days x Absent Days
+    a[43]=a[38]+num(a[39])+num(a[40])-a[41]-num(a[42]);    // Net TA-DA & Mobile Bill (Mobile Bill is not pro-rated)
+    a[44]=a[34]+a[43];                                     // Net Payable Salary = Net Salary + Net TA-DA & Mobile Bill
+  }
   a._cmp=cmpRow(a);
 }
 function buildModel(rows){
@@ -691,9 +756,9 @@ function buildModel(rows){
   const firstText=r=>{ for(let c=0;c<((rows[r]&&rows[r].c)||[]).length;c++){ const v=g(r,c); if(typeof v==='string'&&v.trim()) return v } return '' };
   const t0=(hr>=1?firstText(0):''), t1=(hr>=2?firstText(1):'');   // only rows above the header row can hold the company / title
   META.company = (typeof t0==='string'&&t0.trim()) || 'WeGro Technologies Limited';
-  META.title   = (typeof t1==='string'&&t1.trim()) || 'HQ Salary Sheet';
+  META.title   = (typeof t1==='string'&&t1.trim()) || SEC.label;
   if(!$('#salMonth').value) $('#salMonth').value = monthFromText(META.title) || new Date().toISOString().slice(0,7);
-  { const q=salaryMonth(); if(q) META.title=`HQ Salary Sheet For The Month ${MONTHS[q.m]}-${q.y}`; }
+  { const q=salaryMonth(); if(q) META.title=`${SEC.label} For The Month ${MONTHS[q.m]}-${q.y}`; }
   META.mapped=found; META.mapInfo=info; META.heads=heads; META.missingCols=missing;
   const sm=salaryMonth(), out=[], allA=[]; setMonthLabels(sm); META.excluded=[]; META.month=sm; META.bankConflicts=[]; META.dupAccounts=[]; META.noAccount=[]; META.sciAcct=[]; META.fromCsv=[];
   rows.forEach((row,ri)=>{
@@ -711,8 +776,8 @@ function buildModel(rows){
         if(k!==10 && /^[\d.]+e\+?\d+$/i.test(t)){ META.sciAcct.push(a[1]); return }                // 3.1E+12 style: cannot be trusted
         a[k]=(k===10)?t:t.replace(/\s+/g,''); META.fromCsv.push(a[1]);
       });
-      a[11]='Tejgaon Branch';                     // Branch is always Tejgaon Branch
-      a[35]='';                                   // Remarks is always left blank (never pulled from the sheet)
+      if(!IS_F) a[11]='Tejgaon Branch';           // HQ: Branch is always Tejgaon Branch (Field: Branch Name column of the Field tab)
+      [35,46,47].forEach(k=>{ if(k<NCOL) a[k]='' });   // Remarks / Status are hand inputs (never pulled from the sheet)
       if(CONFIG.EXCLUDE_IDS.map(x=>x.toLowerCase()).includes(String(a[1]).trim().toLowerCase())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Manually excluded']); return }
       if(NOT_JOINED_RX.test(String(a[4]==null?'':a[4]).trim())){ a._row=ri+1; a._sheet=a.slice(); META.excluded.push([a,'Status: '+String(a[4]).trim()+' (salary te ashbe na)']); return }   // never in the salary sheet
       a._row=ri+1; allA.push(a);
@@ -786,7 +851,7 @@ function ingest(){
   ensurePrev();
   $('#banner').innerHTML='';
   ALL=buildModel(RAW);
-  { const sm=salaryMonth(); const iv=buildInterns(INTERN_RAW,sm,ALL); ALL=[...ALL,...iv]; ALL.forEach((a,i)=>{ a[0]=i+1; a._sheet[0]=i+1 }) }
+  if(!IS_F){ const sm=salaryMonth(); const iv=buildInterns(INTERN_RAW,sm,ALL); ALL=[...ALL,...iv]; ALL.forEach((a,i)=>{ a[0]=i+1; a._sheet[0]=i+1 }) }
   if(!ALL.length) throw new Error('Kono employee row paoa jay nai. Sheet er gid ('+CONFIG.GID+') ba salary month thik ache ki?');
   $('#company').textContent=META.company; $('#title').textContent=META.title; document.title=META.company+' - '+META.title;
   if(INTERN_ERR) $('#banner').insertAdjacentHTML('beforeend',`<div class="banner bad"><b>Intern tab sync hoy nai</b> (${esc(INTERN_ERR)}). Salary sheet e shudhu HQ tab er employee ache.</div>`);
@@ -807,7 +872,7 @@ async function load(){
     RAW=await fetchRows();
     await fetchColLabels(RAW);
     await fetchCsvRows();
-    await fetchIntern();
+    if(!IS_F) await fetchIntern();
     ingest();
     if(wasGen) generateSalary(true);
     $('#status').textContent=`Synced ${new Date().toLocaleTimeString()} · ${ALL.length} employees${META.internInfo?' (Intern '+META.internInfo.n+')':''}`;
@@ -822,7 +887,7 @@ $('#btnRefresh').onclick=load;
 $('#btnPrint').onclick=()=>window.print();
 
 /* ================= render ================= */
-const GKEY={25:'add',26:'add',27:'add',28:'ded',29:'ded',30:'pay',31:'stat',32:'stat',33:'stat',34:'net'};   // coloured heading groups
+const GKEY=Object.assign({25:'add',26:'add',27:'add',28:'ded',29:'ded',30:'pay',31:'stat',32:'stat',33:'stat',34:'net'},IS_F?{37:'ta',38:'ta',39:'ta',40:'ta',41:'ta',42:'ta',43:'ta',44:'net'}:{});   // coloured heading groups
 const isResigned=r=>/^resigned$/i.test(String(r[4]==null?'':r[4]).trim());
 const resignedLast=rows=>[...rows.filter(r=>!isResigned(r)),...rows.filter(isResigned)];   // stable: original order kept inside each group
 const colFilters={};                               // {columnIndex: Set(of cell texts that are allowed)}
@@ -856,17 +921,19 @@ function sumCol(rows,c){ return rows.reduce((s,r)=>s+num(r[c]),0) }
 function renderCards(rows){
   const act=rows.filter(r=>r[4]==='Active').length, res=rows.filter(r=>r[4]==='Resigned').length;
   const adj=sumCol(rows,31)+sumCol(rows,32)+sumCol(rows,33);
-  $('#cards').innerHTML=[
+  const items=[
     ['Employees',rows.length,`${act} active · ${res} resigned`],
     ['Total Gross','৳ '+fmtMoney(sumCol(rows,18)),'Monthly gross salary'],
     ['Total Payable','৳ '+fmtMoney(sumCol(rows,30)),'After days & deductions'],
-    ['TDS / Loan / Adjustments','৳ '+fmtMoney(adj),'Statutory & other'],
-    ['Net Payable','৳ '+fmtMoney(sumCol(rows,34)),'To be disbursed']
-  ].map(([k,v,s])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
+    ['TDS / Loan / Adjustments','৳ '+fmtMoney(adj),'Statutory & other']
+  ];
+  if(IS_F) items.push(['TA-DA & Mobile Bill','৳ '+fmtMoney(sumCol(rows,43)),'Net TA/DA + mobile bill']);
+  items.push([IS_F?'Net Payable (with TA-DA)':'Net Payable','৳ '+fmtMoney(sumCol(rows,NETC)),'To be disbursed']);
+  $('#cards').innerHTML=items.map(([k,v,s])=>`<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join('');
 }
 function footHtml(rows){
   let f='<tr>', skip=0;
-  for(let i=0;i<NCOL;i++){
+  for(const i of ORDER){
     if(skip){skip--;continue}
     if(i===0){ f+=`<td colspan="3" class="sticky c0" style="min-width:346px;max-width:346px">Total (${rows.length})</td>`; skip=2; continue }
     f+= TOTAL_COLS.includes(i) ? `<td class="num">${fmtMoney(sumCol(rows,i))}</td>` : '<td></td>';
@@ -882,7 +949,7 @@ function render(){
   renderCards(rows);
 
   /* head */
-  const groups=[]; COLS.forEach(([,,g],i)=>{ const l=groups[groups.length-1]; l&&l.g===g ? l.n++ : groups.push({g,n:1,i}) });
+  const groups=[]; ORDER.forEach(i=>{ const g=COLS[i][2]; const l=groups[groups.length-1]; l&&l.g===g ? l.n++ : groups.push({g,n:1,i}) });
   let h='<thead><tr class="g">';
   groups.forEach(x=>{
     if(x.i===0 && x.n>3){   // frozen columns (SL, Staff Code, Name) keep their own 'Employee' heading
@@ -892,7 +959,7 @@ function render(){
   const XC=PREV?[`${prevLabel()} Final Payable`,'Change Reason']:[];
   if(XC.length) h+=`<th colspan="2" class="g-cmp"><span class="glabel">Comparison with ${esc(prevLabel())}</span></th>`;
   h+='</tr><tr class="h">';
-  COLS.forEach(([l],i)=>{ h+=`<th class="${(i<3?'sticky c'+i:'')+(GKEY[i]?' h-'+GKEY[i]:'')}"><div class="hcell"><span>${esc(l)}</span><button type="button" class="fbtn${colFilters[i]?' on':''}" data-c="${i}" aria-label="Filter: ${esc(l)}" aria-haspopup="true" title="Filter">${colFilters[i]?'&#9660;':'&#9662;'}</button></div></th>` });
+  ORDER.forEach(i=>{ const l=COLS[i][0]; h+=`<th class="${(i<3?'sticky c'+i:'')+(GKEY[i]?' h-'+GKEY[i]:'')}"><div class="hcell"><span>${esc(l)}</span><button type="button" class="fbtn${colFilters[i]?' on':''}" data-c="${i}" aria-label="Filter: ${esc(l)}" aria-haspopup="true" title="Filter">${colFilters[i]?'&#9660;':'&#9662;'}</button></div></th>` });
   XC.forEach(l=>{ h+=`<th class="h-cmp"><div class="hcell"><span>${esc(l)}</span></div></th>` });
   h+='</tr></thead>';
 
@@ -901,12 +968,12 @@ function render(){
   if(!rows.length) b+=`<tr><td colspan="${NCOL}" class="empty">Kono row nei.</td></tr>`;
   rows.forEach(r=>{
     b+=isResigned(r)?'<tr class="res">':'<tr>';
-    COLS.forEach(([,t],i)=>{
-      const v=r[i]; let cls=[], txt='';
+    ORDER.forEach(i=>{
+      const t=COLS[i][1], v=r[i]; let cls=[], txt='';
       if(i<3) cls.push('sticky','c'+i);
       if(EDIT_COLS.includes(i)){
         const mm=MANUAL[String(r[1]).trim().toLowerCase()], set=mm&&mm[i]!==undefined;
-        if(i===35) b+=`<td class="edit" data-c="35"><input class="cellin txt${set?' set':''}" type="text" autocomplete="off" data-code="${esc(r[1])}" data-c="35" value="${esc(v==null?'':String(v))}" placeholder="Remarks" aria-label="Remarks - ${esc(r[1])}"></td>`;
+        if(TEXT_COLS.includes(i)) b+=`<td class="edit" data-c="${i}"><input class="cellin txt${set?' set':''}" type="text" autocomplete="off" data-code="${esc(r[1])}" data-c="${i}" value="${esc(v==null?'':String(v))}" placeholder="${esc(COLS[i][0])}" aria-label="${esc(COLS[i][0])} - ${esc(r[1])}"></td>`;
         else b+=`<td class="num edit" data-c="${i}"><input class="cellin${set?' set':''}" inputmode="decimal" autocomplete="off" data-code="${esc(r[1])}" data-c="${i}" value="${num(v)?esc(String(num(v))):''}" placeholder="0" aria-label="${esc(COLS[i][0])} - ${esc(r[1])}"></td>`;
         return;
       }
@@ -937,17 +1004,17 @@ function refreshRow(tr,r){
 $('#tbl').addEventListener('change',e=>{
   const inp=e.target.closest('input.cellin'); if(!inp) return;
   const code=inp.dataset.code, c=+inp.dataset.c, key=String(code).trim().toLowerCase();
-  const raw=c===35?inp.value.trim():inp.value.trim().replace(/,/g,''); const row=ALL.find(r=>r[1]===code); if(!row) return;
-  if(c!==35&&raw!==''&&!/^-?\d*\.?\d+$/.test(raw)){ inp.classList.add('bad'); inp.title='Shudhu number likho'; return }
+  const isTxt=TEXT_COLS.includes(c), raw=isTxt?inp.value.trim():inp.value.trim().replace(/,/g,''); const row=ALL.find(r=>r[1]===code); if(!row) return;
+  if(!isTxt&&raw!==''&&!/^-?\d*\.?\d+$/.test(raw)){ inp.classList.add('bad'); inp.title='Shudhu number likho'; return }
   inp.classList.remove('bad'); inp.title='';
   MANUAL[key]=MANUAL[key]||{};
   if(raw===''){ delete MANUAL[key][c]; if(!Object.keys(MANUAL[key]).length) delete MANUAL[key]; inp.classList.remove('set') }
-  else if(c===35){ MANUAL[key][c]=raw; inp.classList.add('set') }
+  else if(isTxt){ MANUAL[key][c]=raw; inp.classList.add('set') }
   else { MANUAL[key][c]=parseFloat(raw); inp.classList.add('set'); inp.value=String(parseFloat(raw)) }
   saveManual();
   recalc(row,salaryMonth());
   inp.dataset.orig=inp.value;
-  if(raw===''&&!inp.value&&c!==35) inp.value=row[c]?String(num(row[c])):'';
+  if(raw===''&&!inp.value&&!isTxt) inp.value=row[c]?String(num(row[c])):'';
   const tr=inp.closest('tr'); refreshRow(tr,row);
   const rows=visible(); renderCards(rows); const tf=document.querySelector('#tbl tfoot'); if(tf) tf.innerHTML=footHtml(rows);
   showGenState(); runChecks();
@@ -1004,6 +1071,12 @@ function salaryMonth(){
 function setMonthLabels(sm){
   if(!sm) return;
   const mon=MONTHS[sm.m], yy=String(sm.y).slice(-2);
+  if(IS_F){
+    COLS[18][0]=`${mon.slice(0,3)}' ${yy} Gross Salary`;
+    COLS[44][0]=COLS[44][2]=`Net ${mon}'${yy} Payable Salary`;
+    META.sheetName=`${mon.slice(0,3)}' ${yy} Field Salary`;
+    return;
+  }
   COLS[30][0]=COLS[30][2]=`${mon}'${yy} Total Payable`;
   COLS[34][0]=COLS[34][2]=`${mon}'${yy} Net Payable`;
   META.sheetName=`${mon.slice(0,3)}' ${yy} Salary`;
@@ -1103,6 +1176,31 @@ function renderMapping(){
 }
 
 /* ================= Excel export ================= */
+function addEmployeeList(wb,rows,border,HEAD){
+  {
+    const es=wb.addWorksheet('Employee List',{views:[{state:'frozen',ySplit:4}]});
+    es.getCell('A1').value=META.company; es.getCell('A1').font={bold:true,size:14};
+    es.getCell('A2').value=(META.title||'Salary Sheet')+' - Employee List'; es.getCell('A2').font={bold:true,size:12};
+    const nAct=rows.filter(x=>!isResigned(x)).length, nRes=rows.length-nAct;
+    es.getCell('A3').value=`Total ${rows.length} employee  (Active ${nAct} · Resigned ${nRes})`; es.getCell('A3').font={italic:true};
+    const EH=['SL.','Staff Code','Name','Designation','Department','Status','Date of Joining','Last Working Day','Net Payable'];
+    EH.forEach((h,i)=>{ const c=es.getCell(4,i+1); c.value=h; c.font={bold:true}; c.border=border; c.alignment={horizontal:'center',vertical:'middle',wrapText:true}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}} });
+    rows.forEach((d,k)=>{
+      const vals=[k+1,d[1],d[2],d[6],d[7],d[4],d[3] instanceof Date?new Date(Date.UTC(d[3].getFullYear(),d[3].getMonth(),d[3].getDate())):null,d[5] instanceof Date?new Date(Date.UTC(d[5].getFullYear(),d[5].getMonth(),d[5].getDate())):'-',Math.round(num(d[NETC])*100)/100];
+      vals.forEach((v,i)=>{
+        const c=es.getCell(5+k,i+1); c.value=v==null?null:v; c.border=border;
+        if(i===0||i===5||i===6||i===7) c.alignment={horizontal:'center'};
+        if(i===6||i===7) c.numFmt='d-mmm-yyyy';
+        if(i===8) c.numFmt='#,##0';
+        if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} }
+      });
+    });
+    const tr2=5+rows.length; es.getCell(tr2,1).value='Total'; es.mergeCells(tr2,1,tr2,8);
+    es.getCell(tr2,9).value={formula:`SUM(I5:I${tr2-1})`,result:rows.reduce((t,x)=>t+num(x[NETC]),0)}; es.getCell(tr2,9).numFmt='#,##0';
+    for(let c=1;c<=9;c++){ const cell=es.getCell(tr2,c); cell.font={bold:true}; cell.border=border; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}} }
+    [6,11,30,40,28,11,15,15,15].forEach((w,i)=>{ es.getColumn(i+1).width=w });
+  }
+}
 async function exportXlsx(){
   if(!window.ExcelJS){ alert('Excel library load hoy nai (internet check korun).'); return }
   if(!hasAdj()){                                           // allowed, but warn clearly
@@ -1110,6 +1208,7 @@ async function exportXlsx(){
   }
   const rows=resignedLast(ALL); if(!rows.length){ alert('Export korar moto row nei.'); return }
   saveSnapshot(rows);                                      // next month's comparison can use this automatically   // final sheet = all employees, no filter
+  if(IS_F) return exportFieldXlsx(rows);
   const wb=new ExcelJS.Workbook();
   const ws=wb.addWorksheet(META.sheetName||"Salary",{views:[{state:'frozen',xSplit:3,ySplit:4}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:8}});
   const L=colLetter, thin={style:'thin',color:{argb:'FFBFC7BC'}};
@@ -1181,34 +1280,94 @@ async function exportXlsx(){
   const W={0:6,1:10,2:30,3:13,4:10,5:13,6:42,7:28,8:11,9:20,10:22,11:22,12:12,13:11,35:40,[NCOL+1]:70};
   for(let i=0;i<NCOL+XL.length;i++) ws.getColumn(i+1).width = W[i] || 13;
 
-  /* ---- 2nd tab: list of the employees in this salary sheet ---- */
-  {
-    const es=wb.addWorksheet('Employee List',{views:[{state:'frozen',ySplit:4}]});
-    es.getCell('A1').value=META.company; es.getCell('A1').font={bold:true,size:14};
-    es.getCell('A2').value=(META.title||'Salary Sheet')+' - Employee List'; es.getCell('A2').font={bold:true,size:12};
-    const nAct=rows.filter(x=>!isResigned(x)).length, nRes=rows.length-nAct;
-    es.getCell('A3').value=`Total ${rows.length} employee  (Active ${nAct} · Resigned ${nRes})`; es.getCell('A3').font={italic:true};
-    const EH=['SL.','Staff Code','Name','Designation','Department','Status','Date of Joining','Last Working Day','Net Payable'];
-    EH.forEach((h,i)=>{ const c=es.getCell(4,i+1); c.value=h; c.font={bold:true}; c.border=border; c.alignment={horizontal:'center',vertical:'middle',wrapText:true}; c.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}} });
-    rows.forEach((d,k)=>{
-      const vals=[k+1,d[1],d[2],d[6],d[7],d[4],d[3] instanceof Date?new Date(Date.UTC(d[3].getFullYear(),d[3].getMonth(),d[3].getDate())):null,d[5] instanceof Date?new Date(Date.UTC(d[5].getFullYear(),d[5].getMonth(),d[5].getDate())):'-',Math.round(num(d[34])*100)/100];
-      vals.forEach((v,i)=>{
-        const c=es.getCell(5+k,i+1); c.value=v==null?null:v; c.border=border;
-        if(i===0||i===5||i===6||i===7) c.alignment={horizontal:'center'};
-        if(i===6||i===7) c.numFmt='d-mmm-yyyy';
-        if(i===8) c.numFmt='#,##0';
-        if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} }
-      });
-    });
-    const tr2=5+rows.length; es.getCell(tr2,1).value='Total'; es.mergeCells(tr2,1,tr2,8);
-    es.getCell(tr2,9).value={formula:`SUM(I5:I${tr2-1})`,result:rows.reduce((t,x)=>t+num(x[34]),0)}; es.getCell(tr2,9).numFmt='#,##0';
-    for(let c=1;c<=9;c++){ const cell=es.getCell(tr2,c); cell.font={bold:true}; cell.border=border; cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:HEAD}} }
-    [6,11,30,40,28,11,15,15,15].forEach((w,i)=>{ es.getColumn(i+1).width=w });
-  }
+  addEmployeeList(wb,rows,border,HEAD);
 
   const buf=await wb.xlsx.writeBuffer();
   const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
-  const name=(META.title||'Salary_Sheet').replace(/[^\w\-]+/g,'_').replace(/^HQ_Salary_Sheet/,'HQ_Final_Salary_Sheet')+'.xlsx';
+  const name=(META.title||'Salary_Sheet').replace(/[^\w\-]+/g,'_').replace(/^(HQ|Field)_Salary_Sheet/,'$1_Final_Salary_Sheet')+'.xlsx';
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
+}
+
+/* Field Excel: same layout as "Oct'26 Field Salary" in the Field format file (title row, group row, header row, data, total, signatures) */
+async function exportFieldXlsx(rows){
+  const sm=salaryMonth(), NC=ORDER.length;
+  const wb=new ExcelJS.Workbook();
+  const ws=wb.addWorksheet(META.sheetName||'Field Salary',{views:[{state:'frozen',xSplit:3,ySplit:3}],pageSetup:{orientation:'landscape',fitToPage:true,fitToWidth:1,fitToHeight:0,paperSize:8}});
+  const pos=new Map(ORDER.map((d,q)=>[d,q])), L=d=>colLetter(pos.get(d));
+  const thin={style:'thin',color:{argb:'FFBFC7BC'}}, border={top:thin,left:thin,bottom:thin,right:thin};
+  const HEAD='FFEFF6EA', GRP='FFDFEADB', RED={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}};
+  const solid=argb=>({type:'pattern',pattern:'solid',fgColor:{argb}});
+  const COLORS={add:['FFBFE8C6','FFE3F5E6'],ded:['FFF6C4BD','FFFCE6E3'],pay:['FFBCD9F5','FFE2EEFA'],stat:['FFFBD88F','FFFDEFCF'],net:['FF8FD3A0','FFCDEED6'],ta:['FFB9E4E4','FFDCF2F2']};
+
+  ws.getCell('A1').value=`${META.company} \nSalary Sheet (Field Operations)\nFor the month of ${sm?MONTHS[sm.m]+'-'+sm.y:''}`;
+  ws.getCell('A1').font={bold:true,size:14}; ws.getCell('A1').alignment={wrapText:true,vertical:'middle',horizontal:'left'}; ws.mergeCells('A1:G1'); ws.getRow(1).height=61;
+
+  for(let r=2;r<=3;r++) for(let c=1;c<=NC;c++){
+    const cell=ws.getCell(r,c), XC=COLORS[GKEY[ORDER[c-1]]];
+    cell.fill=solid(XC?XC[r===2?0:1]:(r===2?GRP:HEAD)); cell.font={bold:true}; cell.border=border; cell.alignment={horizontal:'center',vertical:'middle',wrapText:true};
+  }
+  const groups=[]; ORDER.forEach((d,q)=>{ const g=COLS[d][2], l=groups[groups.length-1]; l&&l.g===g ? l.n++ : groups.push({g,n:1,q,d}) });
+  const SHOWG=['Additions','Standard Deductions','Statutory & Other Adjustments','TA-DA & Mobile Bill'];
+  groups.forEach(x=>{
+    if(SHOWG.includes(x.g)){ ws.getCell(2,x.q+1).value=x.g; if(x.n>1) ws.mergeCells(2,x.q+1,2,x.q+x.n);
+      for(let k=0;k<x.n;k++) ws.getCell(3,x.q+1+k).value=XL_LABEL[ORDER[x.q+k]]||COLS[ORDER[x.q+k]][0]; }
+    else if(x.n===1 && [30,34,44].includes(x.d)){ ws.getCell(2,x.q+1).value=COLS[x.d][0]; ws.mergeCells(2,x.q+1,3,x.q+1) }   // spans both header rows, like the format file
+    else for(let k=0;k<x.n;k++) ws.getCell(3,x.q+1+k).value=XL_LABEL[ORDER[x.q+k]]||COLS[ORDER[x.q+k]][0];
+  });
+  ws.getRow(3).height=48;
+
+  const XL=PREV?[`${prevLabel()} Final Payable`,'Change Reason']:[];
+  XL.forEach((l,j)=>{ const c2=ws.getCell(2,NC+1+j), c3=ws.getCell(3,NC+1+j);
+    c2.value=j===0?`Comparison with ${prevLabel()}`:null; c3.value=l;
+    [[c2,'FFDCCBF2'],[c3,'FFEFE7FA']].forEach(([c,col])=>{ c.fill=solid(col); c.font={bold:true}; c.border=border; c.alignment={horizontal:'center',vertical:'middle',wrapText:true} }) });
+  if(XL.length) ws.mergeCells(2,NC+1,2,NC+XL.length);
+
+  const first=4, last=first+rows.length-1;
+  const bom=sm?`DATE(${sm.y},${sm.m+1},1)`:null, eom=sm?`DATE(${sm.y},${sm.m+2},0)`:null;
+  rows.forEach((d,k)=>{
+    const r=first+k, row=ws.getRow(r);
+    ORDER.forEach((i,q)=>{
+      const t=COLS[i][1], c=row.getCell(q+1); let v=d[i], f=null;
+      c.value=null;
+      const fm={14:`${L(18)}${r}*60%`,15:`${L(14)}${r}/2`,16:`${L(18)}${r}*5%`,17:`${L(18)}${r}*5%`,20:`${L(18)}${r}/${L(19)}${r}`,
+        23:`${L(21)}${r}-${L(22)}${r}`,24:`${L(20)}${r}*${L(21)}${r}`,
+        28:`(${L(14)}${r}/${L(19)}${r})*${L(22)}${r}`,30:`${L(24)}${r}+(${L(25)}${r}+${L(26)}${r}+${L(27)}${r})-(${L(28)}${r}+${L(29)}${r})`,
+        34:`${L(30)}${r}-(SUM(${L(31)}${r}:${L(33)}${r}))`,
+        38:`(${L(37)}${r}/${L(19)}${r})*${L(21)}${r}`,41:`(${L(37)}${r}/${L(19)}${r})*${L(22)}${r}`,
+        43:`${L(38)}${r}+${L(39)}${r}+${L(40)}${r}-${L(41)}${r}-${L(42)}${r}`,44:`${L(34)}${r}+${L(43)}${r}`,
+        ...(sm&&d[3] instanceof Date?{21:`IF(ISNUMBER(${L(5)}${r}),MIN(${L(5)}${r},${eom}),${eom})-MAX(${L(3)}${r},${bom})+1`}:{}) }[i];
+      if(fm) c.value={formula:fm,result:num(v)};
+      else if(t==='money'||t==='int') c.value=v==null?null:(t==='int'&&i===0?v:num(v));
+      else if(t==='date'){ c.value=v instanceof Date?new Date(Date.UTC(v.getFullYear(),v.getMonth(),v.getDate())):(i===5?'-':null); c.numFmt='d-mmm-yyyy' }
+      else c.value=v==null||v===''?null:String(v);
+      if(t==='money') c.numFmt='#,##0';
+      if(t==='int'||t==='date'||t==='status') c.alignment={horizontal:'center'};
+      if(i===9||i===12||i===45) c.numFmt='@';
+      c.border=border;
+      if(isResigned(d)){ c.fill=RED; c.font={color:{argb:'FF9B1C1C'}} }
+    });
+    if(PREV&&d._cmp){ const qd=d._cmp;
+      [qd.prevN==null?'-':qd.prevN,qd.reason].forEach((v,j)=>{ const c=row.getCell(NC+1+j); c.value=v; c.border=border; if(j===0){ c.numFmt='#,##0'; c.alignment={horizontal:'right'} } else c.alignment={wrapText:true,vertical:'top'};
+        if(isResigned(d)){ c.fill=RED; c.font={color:{argb:'FF9B1C1C'}} } });
+    }
+  });
+
+  const tr=last+1; ws.getCell(tr,1).value='Total Salary with Hold & Final Settlement'; ws.mergeCells(tr,1,tr,7);
+  for(let c=1;c<=NC+XL.length;c++){ const cell=ws.getCell(tr,c); cell.font={bold:true}; cell.border=border; cell.fill=solid(HEAD);
+    const i=ORDER[c-1];
+    if(i!==undefined&&TOTAL_COLS.includes(i)){ cell.value={formula:`SUBTOTAL(9,${L(i)}${first}:${L(i)}${last})`,result:sumCol(rows,i)}; cell.numFmt='#,##0' } }
+  if(XL.length){ const cell=ws.getCell(tr,NC+1); cell.value={formula:`SUBTOTAL(9,${colLetter(NC)}${first}:${colLetter(NC)}${last})`,result:rows.reduce((t,x)=>t+(x._cmp&&x._cmp.prevN!=null?x._cmp.prevN:0),0)}; cell.numFmt='#,##0' }
+  ws.getCell(tr+2,1).value='Prepared By-'; ws.getCell(tr+2,7).value='Checked By-'; ws.getCell(tr+2,11).value='Checked By-'; ws.getCell(tr+2,18).value='Checked By-';
+
+  const W={0:6,1:11,2:30,3:13,4:10,5:13,6:28,7:22,36:20,8:20,9:22,10:22,11:22,12:12,13:11,35:36,45:16,46:36,47:14,[NC]:70};
+  ORDER.forEach((i,q)=>{ ws.getColumn(q+1).width=W[i]||13 });
+  XL.forEach((_,j)=>{ ws.getColumn(NC+1+j).width=j===0?16:70 });
+
+  addEmployeeList(wb,rows,border,HEAD);
+  const buf=await wb.xlsx.writeBuffer();
+  const blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  const name=(META.title||'Field_Salary_Sheet').replace(/[^\w\-]+/g,'_').replace(/^Field_Salary_Sheet/,'Field_Final_Salary_Sheet')+'.xlsx';
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
 }
@@ -1278,11 +1437,11 @@ function readCsv(text){
 }
 function parseInputRows(rows){
   const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
-  let hr=rows.findIndex(r=>(r||[]).some(x=>HEADER_RX[1].test(norm(x))));
+  let hr=rows.findIndex(r=>(r||[]).some(x=>CODE_RX.test(norm(x))));
   if(hr<0) throw new Error('Header row paoa jay nai. Prothom row te "Staff Code" column thakte hobe.');
   const labels=(rows[hr]||[]).map(norm), used=new Set();
   const find=rx=>{ const i=labels.findIndex((l,k)=>!used.has(k)&&l&&rx.test(l)); if(i>=0) used.add(i); return i };
-  const codeCol=find(HEADER_RX[1]);
+  const codeCol=find(CODE_RX);
   const cm={}; INPUT_COLS.forEach(c=>{ cm[c]=find(HEADER_RX[c]) });
   const missingCols=INPUT_COLS.filter(c=>cm[c]<0&&c!==31).map(c=>COLS[c][0]);
   const map=new Map(), warn=[], dupes=[];
@@ -1369,6 +1528,12 @@ $('#btnTemplate').onclick=()=>{
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
 };
 showInputInfo();
+/* ---- section switch (HQ and Intern / Field): saves, then reloads with the other section so nothing is shared ---- */
+document.querySelectorAll('.seg button').forEach(b=>{
+  b.setAttribute('aria-pressed',b.dataset.sec===SECTION);
+  b.onclick=()=>{ if(b.dataset.sec===SECTION) return; try{ saveWork() }catch(e){} location.hash='#'+b.dataset.sec; location.reload() };
+});
+if(IS_F) $('#inHint').innerHTML='Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, Loan/Advance, Other Adjustment, <b>TA-DA Additions</b>, <b>Deduction (Dept. Adjustment)</b>, <b>Staff Code</b> diye mele). <b>Income Tax (TDS)</b> auto hisab hoy (Gross er upor; TA/DA ar Mobile Bill TDS er hisabe ashe na). Step 2: <b>Adjust from Salary</b> press koro. Step 3: <b>Download Final Salary Sheet</b>. Field section er shob data HQ theke alada.';
 </script>
 </body>
 </html>
