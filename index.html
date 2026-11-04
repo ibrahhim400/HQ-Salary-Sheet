@@ -307,7 +307,7 @@ const COLS = IS_F ? (()=>{
   c[37]=['Allocated TA/DA','money','TA-DA & Mobile Bill'];
   c[38]=['Applicable TA/DA','money','TA-DA & Mobile Bill'];
   c[39]=['Mobile Bill','money','TA-DA & Mobile Bill'];
-  c[40]=['TA-DA Additions','money','TA-DA & Mobile Bill'];
+  c[40]=['Additions','money','TA-DA & Mobile Bill'];
   c[41]=['Deduction for Absent / Unauthorised Leave','money','TA-DA & Mobile Bill'];
   c[42]=['Deduction (Dept. Adjustment)','money','TA-DA & Mobile Bill'];
   c[43]=['Net TA-DA & Mobile Bill','money','TA-DA & Mobile Bill'];
@@ -446,7 +446,7 @@ if(IS_F){   // Field tab headers (matched by name, never by position)
   HEADER_RX[34]=/^net salary$/;
   HEADER_RX[37]=[/^ta\s*[\/&-]?\s*da$/,/allocated ta/];
   HEADER_RX[39]=[/^mobile bill$/,/mobile/];
-  HEADER_RX[40]=/ta.?da additions?/;
+  HEADER_RX[40]=/^additions?$|ta.?da additions?/;
   HEADER_RX[42]=/dept.*adjust/;
   HEADER_RX[44]=/^net .*payable/;
   HEADER_RX[45]=[/official gp (number|no\.?)/,/official .*(number|no\.?)/,/gp (number|no\.?)/];
@@ -1541,7 +1541,7 @@ document.querySelectorAll('.seg button').forEach(b=>{
   b.setAttribute('aria-pressed',b.dataset.sec===SECTION);
   b.onclick=()=>{ if(b.dataset.sec===SECTION) return; try{ saveWork() }catch(e){} location.hash='#'+b.dataset.sec; location.reload() };
 });
-if(IS_F) $('#inHint').innerHTML='Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, Loan/Advance, Other Adjustment, <b>TA-DA Additions</b>, <b>Deduction (Dept. Adjustment)</b>, <b>Staff Code</b> diye mele). <b>Income Tax (TDS)</b> auto hisab hoy (Gross er upor; TA/DA ar Mobile Bill TDS er hisabe ashe na). Step 2: <b>Adjust from Salary</b> press koro. Step 3: <b>Download Final Salary Sheet</b>. Field section er shob data HQ theke alada.';
+if(IS_F) $('#inHint').innerHTML='Step 1: <b>Adjustment File</b> upload koro (Absent Days, Arrear, Bonus, Others, Notice Period &amp; Others, Loan/Advance, Other Adjustment, <b>Additions</b> (TA-DA), <b>Deduction (Dept. Adjustment)</b>, <b>Staff Code</b> diye mele). <b>Income Tax (TDS)</b> auto hisab hoy (Gross er upor; TA/DA ar Mobile Bill TDS er hisabe ashe na). Step 2: <b>Adjust from Salary</b> press koro. Step 3: <b>Download Final Salary Sheet</b>. Field section er shob data HQ theke alada.';
 </script>
 </body>
 </html>
