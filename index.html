@@ -449,7 +449,7 @@ if(IS_F){   // Field tab headers (matched by name, never by position)
   HEADER_RX[40]=/ta.?da additions?/;
   HEADER_RX[42]=/dept.*adjust/;
   HEADER_RX[44]=/^net .*payable/;
-  HEADER_RX[45]=/official (number|no)/;
+  HEADER_RX[45]=[/official gp (number|no\.?)/,/official .*(number|no\.?)/,/gp (number|no\.?)/];
 }
 function mapColumns(rows){
   const norm=v=>String(v==null?'':v).toLowerCase().replace(/\s+/g,' ').trim();
@@ -718,6 +718,7 @@ function recalc(a,sm){
   for(let c=0;c<NCOL;c++) a[c]=a._sheet[c];               // always start from the raw sheet values
   a._in=null;
   if(a._intern && !String(a[8]==null?'':a[8]).trim()) a[8]='HQ';                       // Intern: Job Location defaults to HQ
+  if(IS_F&&(!String(a[45]==null?'':a[45]).trim()||/^(n\/?a|-+)$/i.test(String(a[45]).trim()))) a[45]='-';                  // no Official GP Number -> '-'
   if(IS_F&&!String(a[36]==null?'':a[36]).trim()) a[36]=a[8];                         // Field: 'Job Location As Per OGRO' = Covered Area unless the sheet has its own
   if(!String(a[12]==null?'':a[12]).trim()) a[12]='-';                                  // Routing Number blank -> '-' (a value in the Google Sheet is kept as is)
   { const bk=String(a[10]==null?'':a[10]).trim(); a[13]=(!IS_F&&(a._intern||/cheque|check/i.test(bk)))?'Cheque':(!bk?'':(/prime\s*bank/i.test(bk)?'PBL':'Other')) }   // Payroll Type: Intern -> Cheque; Prime Bank Limited -> PBL; any other bank -> Other
@@ -769,7 +770,8 @@ function buildModel(rows){
       { const cc=rows[ri].c[map[9]]; if(cc && typeof cc.v==='number' && Math.abs(cc.v)>=Math.pow(2,53) && cc.f) a[9]=String(cc.f).replace(/\D/g,'') }   // keep long card numbers exact
       if(typeof a[9]==='number') a[9]=String(a[9]);
       if(typeof a[12]==='number') a[12]=String(a[12]);
-      [9,10,12].forEach(k=>{
+      if(IS_F&&typeof a[45]==='number'){ a[45]=String(Math.round(a[45])); if(/^1\d{9}$/.test(a[45])) a[45]='0'+a[45] }   // phone number stored as a number lost its leading 0
+      (IS_F?[9,10,12,45]:[9,10,12]).forEach(k=>{
         if(String(a[k]==null?'':a[k]).trim()||!CSVROWS) return;
         const cr=CSVROWS[ri]; if(!cr||String(cr[map[1]]==null?'':cr[map[1]]).trim().toLowerCase()!==String(a[1]).trim().toLowerCase()) return;   // same row, same Employee ID only
         let t=String(cr[map[k]]==null?'':cr[map[k]]).trim().replace(/^'/,''); if(!t) return;
@@ -1175,6 +1177,12 @@ function renderMapping(){
   if(META.missingCols&&META.missingCols.length) $('#mapBox').open=true;
 }
 
+$('#mapList').addEventListener('change',e=>{      // pick a Google Sheet column by hand: remembered per section, applied at once
+  const sel=e.target.closest('select[data-k]'); if(!sel||!RAW) return;
+  const ov=loadOverrides(); ov[sel.dataset.k]=+sel.value; saveOverrides(ov);
+  const was=GENERATED;
+  try{ ingest(); if(was) generateSalary(true) }catch(err){ $('#banner').innerHTML=`<div class="banner bad">${esc(err.message)}</div>` }
+});
 /* ================= Excel export ================= */
 function addEmployeeList(wb,rows,border,HEAD){
   {
