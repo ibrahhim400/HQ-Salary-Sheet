@@ -8,7 +8,7 @@
 <style>
 :root{
   --g-add:#bfe8c6; --h-add:#e3f5e6; --g-ded:#f6c4bd; --h-ded:#fce6e3; --g-pay:#bcd9f5; --h-pay:#e2eefa; --g-stat:#fbd88f; --h-stat:#fdefcf; --g-net:#8fd3a0; --h-net:#cdeed6; --g-cmp:#dccbf2; --h-cmp:#efe7fa; --g-ta:#b9e4e4; --h-ta:#dcf2f2;
-  --res-bg:#fde8e8; --res-ink:#9b1c1c; --res-hover:#fbd5d5;
+  --hold-bg:#ffe9a8; --hold-ink:#7a4b00; --hold-hover:#ffdf80; --res-bg:#fde8e8; --res-ink:#9b1c1c; --res-hover:#fbd5d5;
   --bg:#f6f7f5; --card:#fff; --ink:#1d2420; --muted:#667068; --line:#dfe4de;
   --accent:#2f6b3f; --accent-ink:#fff; --head:#eff6ea; --group:#dfeadb;
   --warn:#b4570a; --warn-bg:#fdf1e4; --bad:#b3261e; --bad-bg:#fdeceb; --ok-bg:#e6f3e8; --hover:#f3f8f1;
@@ -18,7 +18,7 @@
     --bg:#121613; --card:#1a201b; --ink:#e8ede9; --muted:#97a39a; --line:#2c352e;
     --accent:#6fbf86; --accent-ink:#0e1a12; --head:#223025; --group:#2a3b2d;
     --g-add:#2c4d34; --h-add:#233b29; --g-ded:#5a2c28; --h-ded:#40221f; --g-pay:#274a6d; --h-pay:#1f3850; --g-stat:#5d4a1a; --h-stat:#43360f; --g-net:#2f6a43; --h-net:#25503a; --g-cmp:#46326b; --h-cmp:#372850; --g-ta:#1f4a4a; --h-ta:#193838;
-    --res-bg:#3b1f1f; --res-ink:#f2a3a3; --res-hover:#4a2727;
+    --hold-bg:#4a3a0c; --hold-ink:#ffd666; --hold-hover:#5a4710; --res-bg:#3b1f1f; --res-ink:#f2a3a3; --res-hover:#4a2727;
     --warn:#f0a35e; --warn-bg:#33261a; --bad:#f2928c; --bad-bg:#3a1f1d; --ok-bg:#1f3325; --hover:#202a22;
   }
 }
@@ -135,6 +135,12 @@ thead tr.h th{top:var(--g-h,30px);white-space:normal;min-width:84px;vertical-ali
 tbody tr:hover td{background:var(--hover)}
 tbody tr.res td{background:var(--res-bg);color:var(--res-ink)}
 tbody tr.res:hover td{background:var(--res-hover)}
+tbody tr.hold td{background:var(--hold-bg);color:var(--hold-ink)}
+tbody tr.hold:hover td{background:var(--hold-hover)}
+tbody tr.hold td:first-child:before{content:"HOLD";display:inline-block;margin-right:6px;padding:0 5px;border-radius:4px;background:var(--hold-ink);color:var(--hold-bg);font-size:10px;font-weight:700}
+.holdbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.holdbar input{padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.holdtbl{width:auto;margin-top:10px}.holdtbl th,.holdtbl td{padding:4px 10px;text-align:left;font-size:13px;white-space:normal}
 tbody tr.res .badge{background:var(--res-ink);color:var(--res-bg)}
 td.num{text-align:right;font-variant-numeric:tabular-nums}
 td.edit{padding:2px 3px}
@@ -167,6 +173,8 @@ details.map{margin-top:10px}
 .sign div{min-width:160px;border-top:1px solid var(--muted);padding-top:4px}
 
 @media print{
+  tbody tr.hold td{background:#ffe9a8!important;color:#7a4b00!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+  .holdbox{display:none!important}
   tbody tr.res td{background:#fde8e8!important;color:#9b1c1c!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   #btnRefresh{display:none!important}
   .inputs,.inputsbox,#inbanner{display:none!important}
@@ -242,6 +250,23 @@ details.map{margin-top:10px}
     </section>
   </details>
   <div id="inbanner"></div>
+  <details class="inputsbox holdbox" id="holdPanel">
+    <summary>Hold Salary <span class="sum-sub" id="holdSum"></span></summary>
+    <section class="inputs" aria-label="Hold salary">
+      <div>
+        <b>Put an employee's salary on hold</b>
+        <div class="hint">Enter the Employee ID and a reason. The reason is placed in the Remarks column and the row is highlighted in amber.</div>
+      </div>
+      <div class="holdbar">
+        <input id="holdId" list="holdIds" placeholder="Employee ID" aria-label="Employee ID" autocomplete="off" style="width:150px">
+        <datalist id="holdIds"></datalist>
+        <input id="holdWhy" placeholder="Reason" aria-label="Reason" autocomplete="off" style="width:260px">
+        <button class="btn primary" id="btnHold" type="button">Hold Salary</button>
+      </div>
+      <div class="inputs-status" id="holdMsg" style="grid-column:1/-1"></div>
+      <div style="grid-column:1/-1"><table class="holdtbl"><thead><tr><th>Employee ID</th><th>Name</th><th>Reason</th><th></th></tr></thead><tbody id="holdList"></tbody></table></div>
+    </section>
+  </details>
 
   <details class="map" id="mapBox"><summary>Column mapping (nijer hate column select korte paro)</summary><table class="maptbl"><thead><tr><th>Page column</th><th>Google Sheet column</th></tr></thead><tbody id="mapList"></tbody></table></details>
 
@@ -610,6 +635,21 @@ let ADJUSTED=false;
 const EDIT_COLS=IS_F?[22,25,26,27,29,32,33,40,42,35,46,47]:[22,25,26,27,29,32,33,35];   // 35 = Remarks (text)
 const TEXT_COLS=IS_F?[35,46,47]:[35];
 let MANUAL={};
+/* Salary Hold: {staff code (lower case): reason}. Kept per section + salary month. The reason is shown in the Remarks column and the row turns amber. */
+let HOLD={};
+function holdKey(){ const sm=salaryMonth(); return SEC.man+'hold_'+(sm?sm.y+'-'+sm.m:'x') }
+function loadHold(){ try{ HOLD=JSON.parse(localStorage.getItem(holdKey())||'{}')||{} }catch(e){ HOLD={} } showHold() }
+function saveHold(){ try{ if(Object.keys(HOLD).length) localStorage.setItem(holdKey(),JSON.stringify(HOLD)); else localStorage.removeItem(holdKey()) }catch(e){} touchSaved() }
+function showHold(){
+  const n=Object.keys(HOLD).length, by=new Map(ALL.map(r=>[String(r[1]).trim().toLowerCase(),r]));
+  $('#holdSum').textContent=n?`(${n} on hold)`:'';
+  $('#holdList').innerHTML=n?Object.entries(HOLD).map(([k,why])=>{ const r=by.get(k); return `<tr><td>${esc(r?r[1]:k.toUpperCase())}</td><td>${esc(r?r[2]:'(not in this sheet)')}</td><td>${esc(why)}</td><td><button type="button" class="btn" data-unhold="${esc(k)}">Remove</button></td></tr>` }).join(''):'<tr><td colspan="4" class="hint">No employee on hold.</td></tr>';
+  $('#holdIds').innerHTML=ALL.map(r=>`<option value="${esc(r[1])}">${esc(r[2])}</option>`).join('');
+}
+function holdChanged(){
+  const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm)); saveHold(); showHold();
+  if(GENERATED){ render(); runChecks() } showGenState();
+}
 function manKey(){ const sm=salaryMonth(); return SEC.man+(sm?sm.y+'-'+sm.m:'x') }
 /* ================= Previous month comparison ================= */
 const PREV_COLS=IS_F?[18,21,22,25,26,27,28,29,30,31,32,33,34,37,39,44]:[18,21,22,25,26,27,28,29,30,31,32,33,34];
@@ -720,6 +760,7 @@ function restoreWork(){
   }catch(e){}
 }
 function clearSaved(){
+  HOLD={};
   try{ const del=[]; for(let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k===WORK_KEY||String(k).startsWith(SEC.man)) del.push(k) } del.forEach(k=>localStorage.removeItem(k)) }catch(e){}
   MANUAL={}; INPUTS=null; ADJUSTED=false; RESTORE_GEN=false; PREV=null; ensurePrev(); showPrevInfo();
   if(ALL.length){ const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm)); showInputInfo(); hideSalary('Saved data muche geche.') } else showInputInfo();
@@ -753,6 +794,7 @@ function recalc(a,sm){
   }
   if(a._intern){ a[31]=0; a._tds='intern' }                // Intern: TDS always 0
   { const m=MANUAL[String(a[1]).trim().toLowerCase()]; if(m) EDIT_COLS.forEach(c=>{ if(m[c]!==undefined) a[c]=m[c] }) }   // typed in the sheet wins
+  { const h=HOLD[String(a[1]).trim().toLowerCase()]; a._hold=h!==undefined; if(a._hold) a[35]=h }   // Salary Hold: reason goes to the Remarks column
   if(sm) a[19]=sm.days;                                   // Month Days = days of the selected salary month (auto)
   const S=num(a[18]), T=num(a[19])||1, W=num(a[22]);
   a[14]=S*0.6; a[15]=a[14]/2; a[16]=S*0.05; a[17]=S*0.05;
@@ -859,7 +901,7 @@ function showGenState(note){
 function generateSalary(quiet){
   if(!ALL.length) return;
   ensurePrev(); showPrevInfo();
-  loadManual();
+  loadManual(); loadHold();
   Object.keys(colFilters).forEach(k=>delete colFilters[k]);
   const sm=salaryMonth(); ALL.forEach(r=>recalc(r,sm));     // fresh calculation
   fillDepts(); render(); runChecks();
@@ -872,7 +914,7 @@ $('#btnGenerate').onclick=()=>generateSalary();
 $('#btnHide').onclick=()=>hideSalary();
 let RAW=null;
 function ingest(){
-  ensurePrev();
+  ensurePrev(); loadHold();
   $('#banner').innerHTML='';
   ALL=buildModel(RAW);
   if(!IS_F){ const sm=salaryMonth(); const iv=buildInterns(INTERN_RAW,sm,ALL); ALL=[...ALL,...iv]; ALL.forEach((a,i)=>{ a[0]=i+1; a._sheet[0]=i+1 }) }
@@ -992,13 +1034,13 @@ function render(){
   let b='<tbody>';
   if(!rows.length) b+=`<tr><td colspan="${NCOL}" class="empty">Kono row nei.</td></tr>`;
   rows.forEach(r=>{
-    b+=isResigned(r)?'<tr class="res">':'<tr>';
+    b+=r._hold?'<tr class="hold">':(isResigned(r)?'<tr class="res">':'<tr>');
     ORDER.forEach(i=>{
       const t=COLS[i][1], v=r[i]; let cls=[], txt='';
       if(i<3) cls.push('sticky','c'+i);
       if(EDIT_COLS.includes(i)){
         const mm=MANUAL[String(r[1]).trim().toLowerCase()], set=mm&&mm[i]!==undefined;
-        if(TEXT_COLS.includes(i)) b+=`<td class="edit" data-c="${i}"><input class="cellin txt${set?' set':''}" type="text" autocomplete="off" data-code="${esc(r[1])}" data-c="${i}" value="${esc(v==null?'':String(v))}" placeholder="${esc(COLS[i][0])}" aria-label="${esc(COLS[i][0])} - ${esc(r[1])}"></td>`;
+        if(TEXT_COLS.includes(i)) b+=`<td class="edit" data-c="${i}"><input class="cellin txt${set?' set':''}" type="text" autocomplete="off" data-code="${esc(r[1])}" data-c="${i}" value="${esc(v==null?'':String(v))}" ${i===35&&r._hold?' readonly title="Salary on hold - change or remove it in the Hold Salary box"':''} placeholder="${esc(COLS[i][0])}" aria-label="${esc(COLS[i][0])} - ${esc(r[1])}"></td>`;
         else b+=`<td class="num edit" data-c="${i}"><input class="cellin${set?' set':''}" inputmode="decimal" autocomplete="off" data-code="${esc(r[1])}" data-c="${i}" value="${num(v)?esc(String(num(v))):''}" placeholder="0" aria-label="${esc(COLS[i][0])} - ${esc(r[1])}"></td>`;
         return;
       }
@@ -1175,6 +1217,7 @@ function runChecks(){
     const o=r._sheet||[];
     if(r[4]==='Resigned' && !r[5]) L.push(`${r[1]} ${r[2]}: Resigned kintu Last Working Day nei`);
   });
+  ALL.filter(r=>r._hold).forEach(r=>L.push(`${r[1]} ${r[2]}: Salary on HOLD - ${r[35]}`));
   ALL.filter(r=>r._resignLater).forEach(r=>L.push(`${r[1]} ${r[2]}: Last Working Day ${fmtDate(r._resignLater)} porer mase, tai ei masher salary sheet e Active (full month) dekhano hoyeche`));
   ALL.filter(r=>r._tds==='file').forEach(r=>L.push(`${r[1]} ${r[2]}: TDS Adjustment File theke ${fmtMoney(r[31])} (auto hisab ${fmtMoney(r._tdsAuto)})`));
   if(META.internInfo){ L.push(`Intern tab: ${META.internInfo.n} jon notun + ${META.internInfo.already.length} jon age-i HQ tab e chilo (double hoy nai). Intern rule: Bank = Paid by Cheque, TDS = 0`); META.internInfo.warn.forEach(w=>L.push(w)) }
@@ -1208,6 +1251,10 @@ $('#mapList').addEventListener('change',e=>{      // pick a Google Sheet column 
   try{ ingest(); if(was) generateSalary(true) }catch(err){ $('#banner').innerHTML=`<div class="banner bad">${esc(err.message)}</div>` }
 });
 /* ================= Excel export ================= */
+function rowStyle(c,d){   // Hold = amber, Resigned = red
+  if(d._hold){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFE08A'}}; c.font={bold:true,color:{argb:'FF7A4B00'}} }
+  else if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} }
+}
 function addEmployeeList(wb,rows,border,HEAD){
   {
     const es=wb.addWorksheet('Employee List',{views:[{state:'frozen',ySplit:4}]});
@@ -1224,7 +1271,7 @@ function addEmployeeList(wb,rows,border,HEAD){
         if(i===0||i===5||i===6||i===7) c.alignment={horizontal:'center'};
         if(i===6||i===7) c.numFmt='d-mmm-yyyy';
         if(i===8) c.numFmt='#,##0';
-        if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} }
+        rowStyle(c,d);
       });
     });
     const tr2=5+rows.length; es.getCell(tr2,1).value='Total'; es.mergeCells(tr2,1,tr2,8);
@@ -1292,11 +1339,11 @@ async function exportXlsx(){
       if(t==='int'||t==='date'||t==='status') c.alignment={horizontal:'center'};
       if(i===9||i===12) c.numFmt='@';
       c.border=border;
-      if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} }
+      rowStyle(c,d);
     });
     if(PREV&&d._cmp){ const q=d._cmp;
       [q.prevN==null?'-':q.prevN,q.reason].forEach((v,j)=>{ const c=row.getCell(NCOL+1+j); c.value=v; c.border=border; if(j===0){ c.numFmt='#,##0'; c.alignment={horizontal:'right'} } else c.alignment={wrapText:true,vertical:'top'};
-        if(isResigned(d)){ c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFDE8E8'}}; c.font={color:{argb:'FF9B1C1C'}} } });
+        rowStyle(c,d); });
     }
   });
 
@@ -1377,11 +1424,11 @@ async function exportFieldXlsx(rows){
       if(t==='int'||t==='date'||t==='status') c.alignment={horizontal:'center'};
       if(i===9||i===12||i===45) c.numFmt='@';
       c.border=border;
-      if(isResigned(d)){ c.fill=RED; c.font={color:{argb:'FF9B1C1C'}} }
+      rowStyle(c,d);
     });
     if(PREV&&d._cmp){ const qd=d._cmp;
       [qd.prevN==null?'-':qd.prevN,qd.reason].forEach((v,j)=>{ const c=row.getCell(NC+1+j); c.value=v; c.border=border; if(j===0){ c.numFmt='#,##0'; c.alignment={horizontal:'right'} } else c.alignment={wrapText:true,vertical:'top'};
-        if(isResigned(d)){ c.fill=RED; c.font={color:{argb:'FF9B1C1C'}} } });
+        rowStyle(c,d); });
     }
   });
 
@@ -1560,6 +1607,20 @@ $('#btnTemplate').onclick=()=>{
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1000);
 };
 showInputInfo();
+$('#btnHold').onclick=()=>{
+  const id=$('#holdId').value.trim(), why=$('#holdWhy').value.trim(), msg=$('#holdMsg');
+  const bad=t=>{ msg.className='inputs-status'; msg.innerHTML=`<span style="color:var(--bad)">${esc(t)}</span>` };
+  if(!ALL.length) return bad('Sync the data first.');
+  if(!id) return bad('Enter the Employee ID.');
+  const row=ALL.find(r=>String(r[1]).trim().toLowerCase()===id.toLowerCase());
+  if(!row) return bad(`${id} is not in this salary sheet.`);
+  if(!why) return bad('Enter the reason.');
+  HOLD[String(row[1]).trim().toLowerCase()]=why;
+  $('#holdId').value=''; $('#holdWhy').value=''; msg.className='inputs-status ok'; msg.textContent=`${row[1]} ${row[2]}: salary put on hold.`;
+  holdChanged();
+};
+$('#holdWhy').addEventListener('keydown',e=>{ if(e.key==='Enter'){ e.preventDefault(); $('#btnHold').click() } });
+$('#holdList').addEventListener('click',e=>{ const b=e.target.closest('[data-unhold]'); if(!b) return; delete HOLD[b.dataset.unhold]; $('#holdMsg').textContent=''; holdChanged() });
 /* ---- section switch (HQ and Intern / Field): saves, then reloads with the other section so nothing is shared ---- */
 document.querySelectorAll('.seg button').forEach(b=>{
   b.setAttribute('aria-pressed',b.dataset.sec===SECTION);
