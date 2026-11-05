@@ -719,7 +719,9 @@ function recalc(a,sm){
   /* Same formulas as the sheet; Applicable Days comes from Joining / Last Working Day. */
   if(!a._sheet) a._sheet=a.slice();                       // raw values exactly as in Google Sheet
   for(let c=0;c<NCOL;c++) a[c]=a._sheet[c];               // always start from the raw sheet values
-  a._in=null;
+  a._in=null; a._resignLater=null;
+  if(sm&&/^resigned$/i.test(String(a[4]==null?'':a[4]).trim())&&a[5] instanceof Date&&a[5]>new Date(sm.y,sm.m,sm.days)){   // Last Working Day is in a LATER month -> still Active (full month) in this salary month
+    a._resignLater=a[5]; a[4]='Active'; a[5]=null }
   if(a._intern && !String(a[8]==null?'':a[8]).trim()) a[8]='HQ';                       // Intern: Job Location defaults to HQ
   if(IS_F&&(!String(a[45]==null?'':a[45]).trim()||/^(n\/?a|-+)$/i.test(String(a[45]).trim()))) a[45]='-';                  // no Official GP Number -> '-'
   if(SECTION==='field'&&sm&&a[3] instanceof Date&&a[3].getFullYear()===sm.y&&a[3].getMonth()===sm.m&&a[3].getDate()>=16){   // Field: joined on 16th or later in the salary month -> 50% of the Mobile Bill (joined 1st-15th or before the month -> full)
@@ -1160,6 +1162,7 @@ function runChecks(){
     const o=r._sheet||[];
     if(r[4]==='Resigned' && !r[5]) L.push(`${r[1]} ${r[2]}: Resigned kintu Last Working Day nei`);
   });
+  ALL.filter(r=>r._resignLater).forEach(r=>L.push(`${r[1]} ${r[2]}: Last Working Day ${fmtDate(r._resignLater)} porer mase, tai ei masher salary sheet e Active (full month) dekhano hoyeche`));
   ALL.filter(r=>r._tds==='file').forEach(r=>L.push(`${r[1]} ${r[2]}: TDS Adjustment File theke ${fmtMoney(r[31])} (auto hisab ${fmtMoney(r._tdsAuto)})`));
   if(META.internInfo){ L.push(`Intern tab: ${META.internInfo.n} jon notun + ${META.internInfo.already.length} jon age-i HQ tab e chilo (double hoy nai). Intern rule: Bank = Paid by Cheque, TDS = 0`); META.internInfo.warn.forEach(w=>L.push(w)) }
   if(PREV){ const cur=new Set(ALL.map(r=>String(r[1]).trim().toLowerCase())); const gone=[...PREV.map.entries()].filter(([k])=>!cur.has(k)); if(gone.length) L.push(`${prevLabel()} e chilo kintu ei month e nei (${gone.length} jon): ${gone.slice(0,15).map(([k,v])=>k.toUpperCase()+(v.name?' '+v.name:'')).join('; ')}${gone.length>15?' ...':''}`) }
