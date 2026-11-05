@@ -722,6 +722,9 @@ function recalc(a,sm){
   a._in=null;
   if(a._intern && !String(a[8]==null?'':a[8]).trim()) a[8]='HQ';                       // Intern: Job Location defaults to HQ
   if(IS_F&&(!String(a[45]==null?'':a[45]).trim()||/^(n\/?a|-+)$/i.test(String(a[45]).trim()))) a[45]='-';                  // no Official GP Number -> '-'
+  if(SECTION==='field'&&sm&&a[3] instanceof Date&&a[3].getFullYear()===sm.y&&a[3].getMonth()===sm.m&&a[3].getDate()>=16){   // Field: joined on 16th or later in the salary month -> 50% of the Mobile Bill (joined 1st-15th or before the month -> full)
+    a[39]=num(a._sheet[39])*0.5; a._mobHalf=true }
+  else a._mobHalf=false;
   if(IS_F&&!String(a[36]==null?'':a[36]).trim()) a[36]=a[8];                         // Field: 'Job Location As Per OGRO' = Covered Area unless the sheet has its own
   if(!String(a[12]==null?'':a[12]).trim()) a[12]='-';                                  // Routing Number blank -> '-' (a value in the Google Sheet is kept as is)
   { const bk=String(a[10]==null?'':a[10]).trim(); a[13]=(!IS_F&&(a._intern||/cheque|check/i.test(bk)))?'Cheque':(!bk?'':(/prime\s*bank/i.test(bk)?'PBL':'Other')) }   // Payroll Type: Intern -> Cheque; Prime Bank Limited -> PBL; any other bank -> Other
